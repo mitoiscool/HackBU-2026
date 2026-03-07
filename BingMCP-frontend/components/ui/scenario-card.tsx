@@ -29,15 +29,15 @@ export function ScenarioCard({ scenario, setInput, inputRef }: ScenarioCardProps
         <MotionButton
             variant="outline"
             onClick={handleClick}
-            whileHover={{ scale: 1.015 }}
-            whileTap={{ scale: 0.985 }}
-            transition={{ type: "spring", stiffness: 400, damping: 28 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
             className="
         group h-auto flex flex-col justify-between items-start text-left w-full
         p-5 rounded-xl overflow-hidden
         whitespace-normal
         bg-scenario-card-bg border-border
-        hover:bg-scenario-card-hover hover:border-ring hover:text-foreground
+        hover:bg-scenario-card-hover hover:border-primary/30 hover:text-foreground
         transition-colors duration-150
       "
         >

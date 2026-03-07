@@ -1,5 +1,5 @@
+import argparse
 import importlib
-import os
 import sys
 import time
 from datetime import datetime
@@ -73,19 +73,38 @@ def _patch_tools_with_logging(mcp: FastMCP) -> None:
         tool_obj.fn = make_wrapper(name, original_fn)
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the BingMCP server.")
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "http"),
+        default="stdio",
+        help="Transport to run: stdio (default) or Streamable HTTP.",
+    )
+    return parser.parse_args()
+
+
 def main():
-    host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "8000"))
+    args = _parse_args()
 
-    _log(f"Starting BingMCP SSE server on {host}:{port}")
-    _log(f"SSE endpoint will be available at: http://{host}:{port}/sse")
+    if args.transport == "http":
+        host = "localhost"
+        port = 8000
+        _log(f"Starting BingMCP Streamable HTTP server on {host}:{port}")
+        _log(f"HTTP endpoint will be available at: http://{host}:{port}/mcp")
+        mcp = FastMCP("BingMCP", host=host, port=port)
+    else:
+        _log("Starting BingMCP stdio server")
+        mcp = FastMCP("BingMCP")
 
-    mcp = FastMCP("BingMCP", host=host, port=port)
     load_tools_dynamically(mcp)
     _patch_tools_with_logging(mcp)
 
     _log("Server ready — waiting for connections")
-    mcp.run(transport="sse")
+    if args.transport == "http":
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

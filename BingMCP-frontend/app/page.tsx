@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
-import { motion } from "framer-motion"
-import { Timer, Bus, MoonStar, Wallet, Paperclip, ArrowUp, User, Bot } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { useTheme } from "next-themes"
+import { Timer, Bus, MoonStar, Wallet, Paperclip, ArrowUp, User, Bot, Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScenarioCard, type Scenario } from "@/components/ui/scenario-card"
 import { MarkdownMessage } from "@/components/ui/markdown-message"
 import { ToolCallCard } from "@/components/ui/tool-call-card"
+import { TestMode } from "@/components/visuals/TestMode"
 
 const SCENARIOS: Scenario[] = [
   {
@@ -37,6 +39,65 @@ const SCENARIOS: Scenario[] = [
   },
 ]
 
+// Easing curve for premium snappy feel
+const EASE = [0.16, 1, 0.3, 1]
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: EASE, delay: i * 0.07 },
+  }),
+}
+
+const messageVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: EASE } },
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return <div className="h-9 w-9" />
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      aria-label="Toggle theme"
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {theme === "dark" ? (
+          <motion.span
+            key="sun"
+            initial={{ opacity: 0, rotate: -30, scale: 0.8 }}
+            animate={{ opacity: 1, rotate: 0, scale: 1 }}
+            exit={{ opacity: 0, rotate: 30, scale: 0.8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <Sun className="h-4 w-4" />
+          </motion.span>
+        ) : (
+          <motion.span
+            key="moon"
+            initial={{ opacity: 0, rotate: 30, scale: 0.8 }}
+            animate={{ opacity: 1, rotate: 0, scale: 1 }}
+            exit={{ opacity: 0, rotate: -30, scale: 0.8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            <Moon className="h-4 w-4" />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </Button>
+  )
+}
+
 export default function ChatWindow() {
   const { messages, status, sendMessage, error } = useChat()
   const [input, setInput] = useState("")
@@ -45,7 +106,6 @@ export default function ChatWindow() {
 
   const isStreaming = status === "streaming" || status === "submitted"
 
-  // Auto-scroll to bottom when messages change or during streaming
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, status])
@@ -59,33 +119,76 @@ export default function ChatWindow() {
 
   return (
     <div className="flex flex-col h-svh items-center">
+      <TestMode />
+
+      {/* Top bar */}
+      <div className="w-full flex justify-end px-4 py-2 shrink-0">
+        <ThemeToggle />
+      </div>
+
       <div className="flex flex-1 w-full max-w-screen-md flex-col overflow-hidden">
 
         {/* Empty state */}
-        {messages.length === 0 && (
-          <div className="flex flex-1 flex-col justify-center px-4 md:px-8">
-            <div className="mb-10">
-              <h1 className="text-3xl font-semibold">Hello there!</h1>
-              <p className="text-xl text-muted-foreground mt-1">What do you want to tackle on campus?</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-              {SCENARIOS.map((s) => (
-                <ScenarioCard
-                  key={s.title}
-                  scenario={s}
-                  setInput={setInput}
-                  inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {messages.length === 0 && (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="flex flex-1 flex-col justify-center px-4 md:px-8"
+            >
+              <div className="mb-10">
+                <motion.h1
+                  className="text-3xl font-semibold"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: EASE }}
+                >
+                  Hello there!
+                </motion.h1>
+                <motion.p
+                  className="text-xl text-muted-foreground mt-1"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: EASE, delay: 0.06 }}
+                >
+                  What do you want to tackle on campus?
+                </motion.p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {SCENARIOS.map((s, i) => (
+                  <motion.div
+                    key={s.title}
+                    custom={i}
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <ScenarioCard
+                      scenario={s}
+                      setInput={setInput}
+                      inputRef={inputRef as React.RefObject<HTMLTextAreaElement>}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Chat thread */}
         {messages.length > 0 && (
           <div className="flex flex-1 flex-col gap-6 px-4 md:px-8 pt-8 pb-4 overflow-y-auto">
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <motion.div
+                key={msg.id}
+                variants={messageVariants}
+                initial="hidden"
+                animate="visible"
+                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 {msg.role === "assistant" && (
                   <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary mt-0.5">
                     <Bot className="h-4 w-4" />
@@ -121,7 +224,6 @@ export default function ChatWindow() {
                         }
                         return null
                       })}
-                      {/* If there are no parts yet, show empty bubble */}
                       {(!msg.parts || msg.parts.length === 0) && (
                         <div className="rounded-2xl rounded-bl-sm bg-muted text-foreground px-4 py-2.5">
                           &nbsp;
@@ -135,36 +237,50 @@ export default function ChatWindow() {
                     <User className="h-4 w-4 text-muted-foreground" />
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
 
-            {/* Thinking animation — shown while waiting for first token */}
-            {status === "submitted" && (
-              <div className="flex gap-3 justify-start">
-                <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary mt-0.5">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3.5 flex gap-1.5 items-center">
-                  {[0, 1, 2].map((i) => (
-                    <motion.span
-                      key={i}
-                      className="block h-2 w-2 rounded-full bg-muted-foreground"
-                      animate={{ scale: [0.5, 1, 0.5], opacity: [0.4, 1, 0.4] }}
-                      transition={{
-                        duration: 1.1,
-                        repeat: Infinity,
-                        delay: i * 0.18,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Thinking animation */}
+            <AnimatePresence>
+              {status === "submitted" && (
+                <motion.div
+                  key="thinking"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="flex gap-3 justify-start"
+                >
+                  <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary mt-0.5">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3.5 flex gap-1.5 items-center">
+                    {[0, 1, 2].map((i) => (
+                      <motion.span
+                        key={i}
+                        className="block h-2 w-2 rounded-full bg-muted-foreground"
+                        animate={{ scale: [0.5, 1, 0.5], opacity: [0.4, 1, 0.4] }}
+                        transition={{
+                          duration: 1.1,
+                          repeat: Infinity,
+                          delay: i * 0.18,
+                          ease: "easeInOut",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Error state */}
             {error && (
-              <div className="flex gap-3 justify-start">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="flex gap-3 justify-start"
+              >
                 <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-destructive/10 text-destructive mt-0.5">
                   <Bot className="h-4 w-4" />
                 </div>
@@ -172,10 +288,9 @@ export default function ChatWindow() {
                   <p className="font-medium">Something went wrong</p>
                   <p className="text-destructive/80 font-mono text-xs break-all">{error.message}</p>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Scroll anchor */}
             <div ref={messagesEndRef} className="h-0 shrink-0" />
           </div>
         )}
