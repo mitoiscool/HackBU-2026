@@ -134,12 +134,18 @@ def register(mcp: FastMCP):
         Returns real-time washer and dryer availability for a Binghamton
         University residential laundry room.
 
-        Supported buildings include: Hinman, Newing, Dickinson, Mountainview,
-        Hillside, CIW (College-in-the-Woods), and other BU residential areas.
+        Supported room keys (pass exactly as shown, case-insensitive):
+          windham_g14, bingham_122, brandywine_116a, broome_g18, cascade_g14,
+          cayuga_209, choconut_116a, cleveland_lr, delaware_117, digman_g11,
+          endicott_g26, glenwood_116a, hughes_a_b1, hughes_b_b7, hunter_g14,
+          johnson_g25a, lehman_a_b1, lehman_b_b7, marcy_g14, mohawk_g05,
+          nanticoke_116a, oconnor_g06, old_digman, oneida_111, onondaga,
+          rafuse_124, roosevelt_a_b1, roosevelt_b_b7, seneca_107, smith_b_b7,
+          smith_dorm_a_b1.
 
         Args:
-            building: Name of the BU residential building (case-insensitive),
-                      e.g. "Hinman", "Newing", "CIW".
+            building: Exact room key from the list above, e.g. "windham_g14",
+                      "hughes_a_b1", "seneca_107".
 
         Returns on success:
             {
