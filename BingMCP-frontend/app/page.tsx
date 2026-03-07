@@ -101,6 +101,7 @@ function ThemeToggle() {
 export default function ChatWindow() {
   const { messages, status, sendMessage, error } = useChat()
   const [input, setInput] = useState("")
+  const [isTestModeEnabled, setIsTestModeEnabled] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -109,6 +110,18 @@ export default function ChatWindow() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, status])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return
+      if (event.shiftKey && event.key.toLowerCase() === "d") {
+        setIsTestModeEnabled((prev) => !prev)
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   const submit = () => {
     const text = input.trim()
@@ -119,7 +132,7 @@ export default function ChatWindow() {
 
   return (
     <div className="flex flex-col h-svh items-center">
-      <TestMode />
+      {isTestModeEnabled && <TestMode />}
 
       {/* Top bar */}
       <div className="w-full flex justify-end px-4 py-2 shrink-0">
