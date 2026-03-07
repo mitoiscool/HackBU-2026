@@ -38,7 +38,7 @@ const SCENARIOS: Scenario[] = [
 ]
 
 export default function ChatWindow() {
-  const { messages, status, sendMessage } = useChat()
+  const { messages, status, sendMessage, error } = useChat()
   const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -158,6 +158,19 @@ export default function ChatWindow() {
                       }}
                     />
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Error state */}
+            {error && (
+              <div className="flex gap-3 justify-start">
+                <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-destructive/10 text-destructive mt-0.5">
+                  <Bot className="h-4 w-4" />
+                </div>
+                <div className="max-w-[80%] rounded-2xl rounded-bl-sm bg-destructive/10 border border-destructive/20 px-4 py-2.5 text-sm text-destructive space-y-1">
+                  <p className="font-medium">Something went wrong</p>
+                  <p className="text-destructive/80 font-mono text-xs break-all">{error.message}</p>
                 </div>
               </div>
             )}
