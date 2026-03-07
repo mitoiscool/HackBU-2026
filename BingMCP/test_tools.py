@@ -59,10 +59,8 @@ def validate_gym(data: dict):
         return
     check("has 'capacity_percent'", "capacity_percent" in data)
     check("has 'is_open'", "is_open" in data)
-    check("has 'hours'", "hours" in data)
     check("capacity_percent is int", isinstance(data.get("capacity_percent"), int))
     check("is_open is bool", isinstance(data.get("is_open"), bool))
-    check("hours is str", isinstance(data.get("hours"), str))
 
 
 def validate_laundry(building: str, data: dict):

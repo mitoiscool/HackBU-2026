@@ -29,7 +29,6 @@ async def _fetch_gym() -> dict:
         {
             "capacity_percent": int,
             "is_open": bool,
-            "hours": str,
         }
     """
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
@@ -68,7 +67,6 @@ async def _fetch_gym() -> dict:
     return {
         "capacity_percent": capacity_percent,
         "is_open": is_open,
-        "hours": str(data.get("hours", "")),
         "count": count,
     }
 # ─────────────────────────────────────────────────────────────────────────────
@@ -85,8 +83,7 @@ def register(mcp: FastMCP):
         Returns on success:
             {
                 "capacity_percent": int,
-                "is_open": bool,
-                "hours": str
+                "is_open": bool
             }
 
         Returns on failure:
