@@ -8,180 +8,130 @@ interface DiningVisualProps {
   className?: string
 }
 
-const GRID_ROWS = Array.from({ length: 12 }, (_, i) => i)
-const GRID_COLS = Array.from({ length: 10 }, (_, i) => i)
-const SCANLINES = Array.from({ length: 30 }, (_, i) => i)
-const TRAILS = Array.from({ length: 9 }, (_, i) => i)
-
-/**
- * Dining finder visual in a strict neon holographic style:
- * - Green/blue/white wireframe palette
- * - Scanlines + perspective grid-map
- * - Particle trails and glow accents
- */
 export function DiningVisual({ className }: DiningVisualProps) {
   return (
     <div
       className={cn(
-        "relative w-full max-w-xs aspect-[16/9] overflow-hidden rounded-2xl border border-cyan-400/40 bg-black shadow-sm",
-        "before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_72%_18%,_rgba(0,255,136,0.14),_transparent_52%)]",
+        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 bg-black overflow-hidden shadow-sm",
+        "before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top,_rgba(0,255,136,0.12),_transparent_60%)]",
         className,
       )}
     >
-      <motion.svg viewBox="0 0 160 90" className="h-full w-full" initial={false}>
-        <defs>
-          <linearGradient id="dining-grid-glow" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#00aaff" stopOpacity="0.75" />
-            <stop offset="100%" stopColor="#00ff88" stopOpacity="0.85" />
-          </linearGradient>
-          <linearGradient id="tray-stroke" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#00aaff" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#00ff88" stopOpacity="0.9" />
-          </linearGradient>
-        </defs>
-
-        {/* Perspective grid map */}
+      <svg
+        viewBox="0 0 320 180"
+        className="h-full w-full"
+      >
+        {/* Background Grid - scrolling bottom-right */}
         <motion.g
-          stroke="#00aaff"
-          strokeOpacity="0.34"
-          strokeWidth="0.45"
-          animate={{ y: [0, 7] }}
-          transition={{ duration: 2.3, repeat: Infinity, ease: "linear" }}
+          animate={{ x: [0, 20], y: [0, 20] }}
+          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
         >
-          {GRID_ROWS.map((row) => {
-            const y = 38 + row * 4.8
-            return <line key={`row-${row}`} x1={8} y1={y} x2={152} y2={y} />
-          })}
-          {GRID_COLS.map((col) => {
-            const t = col / (GRID_COLS.length - 1)
-            const xTop = 20 + t * 120
-            const xBottom = 2 + t * 156
-            return <line key={`col-${col}`} x1={xTop} y1={34} x2={xBottom} y2={89} />
-          })}
+          <g stroke="#ffffff" strokeWidth={1} strokeOpacity={0.1}>
+            {Array.from({ length: 25 }).map((_, i) => (
+              <line key={`h-${i}`} x1={-50} y1={i * 20 - 50} x2={400} y2={i * 20 - 50} />
+            ))}
+            {Array.from({ length: 25 }).map((_, i) => (
+              <line key={`v-${i}`} x1={i * 20 - 50} y1={-50} x2={i * 20 - 50} y2={300} />
+            ))}
+          </g>
         </motion.g>
 
-        {/* Particle streak trails */}
-        <motion.g
-          stroke="#00aaff"
-          strokeWidth="0.95"
-          strokeLinecap="round"
-          initial={false}
-          animate={{ opacity: [0.22, 0.95, 0.22] }}
-          transition={{ duration: 1.25, repeat: Infinity, ease: "easeInOut" }}
-        >
-          {TRAILS.map((i) => {
-            const x = 16 + i * 16
-            const y = 16 + (i % 4) * 9
-            const len = 5 + (i % 3) * 3
-            return (
-              <motion.line
-                key={`trail-${i}`}
-                x1={x}
-                y1={y}
-                x2={x + len}
-                y2={y + len * 0.72}
-                animate={{ x1: [x - 8, x + 14], x2: [x + len - 8, x + len + 14] }}
-                transition={{ duration: 1.45 + (i % 3) * 0.22, repeat: Infinity, ease: "linear", delay: i * 0.08 }}
-              />
-            )
-          })}
-        </motion.g>
+        {/* Blue dashed background grid for radar effect */}
+        {/* Intentionally removed to keep background cleaner */}
 
-        {/* Main tray shell */}
-        <g>
-          <rect x="30" y="20" width="100" height="52" rx="7" fill="none" stroke="url(#tray-stroke)" strokeWidth="1.15" />
-          <rect x="34" y="24" width="92" height="44" rx="5" fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.65" />
-          <path d="M30 30 L130 30" stroke="#00ff88" strokeOpacity="0.22" strokeWidth="0.7" />
-          <path d="M30 58 L130 58" stroke="#00ff88" strokeOpacity="0.22" strokeWidth="0.7" />
+        {/* Center alignment group */}
+        <g transform="translate(160, 90)">
+          {/* Tray Sequence */}
+          <motion.g
+            animate={{
+              y: [200, 0, 0, 0, 0, 0, 0, 200],
+              x: [0, 0, 0, 0, 0, -320, -320, 0],
+              rotate: [0, 0, 0, 0, -90, -90, -90, 0],
+              opacity: [1, 1, 1, 1, 1, 1, 0, 0]
+            }}
+            transition={{
+              duration: 5,
+              times: [0, 0.15, 0.3, 0.55, 0.7, 0.8, 0.81, 1],
+              ease: "easeInOut",
+              repeat: Infinity,
+              repeatType: "loop"
+            }}
+          >
+            {/* Tray */}
+            <g>
+              <rect x={-70} y={-90} width={140} height={180} rx={12} fill="rgba(0,255,136,0.05)" stroke="#00ff88" strokeWidth={2} />
+              <rect x={-62} y={-82} width={124} height={164} rx={8} fill="none" stroke="#00ff88" strokeWidth={1} strokeOpacity={0.5} />
+              <rect x={-20} y={-86} width={40} height={4} rx={2} fill="none" stroke="#00ff88" strokeWidth={1} />
+              <rect x={-20} y={82} width={40} height={4} rx={2} fill="none" stroke="#00ff88" strokeWidth={1} />
+            </g>
+
+            {/* Food dropping in */}
+            <motion.g
+              animate={{
+                scale: [1.5, 1.5, 1, 1, 1, 1, 1, 1.5],
+                opacity: [0, 0, 1, 1, 1, 1, 0, 0]
+              }}
+              transition={{
+                duration: 5,
+                times: [0, 0.15, 0.25, 0.55, 0.7, 0.8, 0.81, 1],
+                ease: "easeOut",
+                repeat: Infinity,
+                repeatType: "loop"
+              }}
+            >
+              {/* Plate */}
+              <circle cx={0} cy={10} r={54} fill="rgba(0,0,0,0.8)" stroke="#ffffff" strokeWidth={2} />
+              <circle cx={0} cy={10} r={44} fill="none" stroke="#ffffff" strokeWidth={1} strokeOpacity={0.5} />
+              
+              {/* Drink (cylinder) */}
+              <g stroke="#ffffff" fill="rgba(255,255,255,0.05)">
+                <circle cx={45} cy={-50} r={12} strokeWidth={1} />
+                <circle cx={50} cy={-65} r={12} strokeWidth={1.5} />
+                <line x1={33} y1={-50} x2={38} y2={-65} strokeWidth={1} />
+                <line x1={57} y1={-50} x2={62} y2={-65} strokeWidth={1} />
+                <line x1={50} y1={-65} x2={55} y2={-82} stroke="#00ff88" strokeWidth={2} strokeLinecap="round" />
+              </g>
+
+              {/* Burger/Dome (offset cylinder) */}
+              <g stroke="#00aaff" fill="rgba(0,170,255,0.1)">
+                <circle cx={-15} cy={15} r={22} strokeWidth={1} />
+                <circle cx={-10} cy={5} r={16} strokeWidth={1.5} />
+                <line x1={-37} y1={15} x2={-26} y2={5} strokeWidth={1} />
+                <line x1={7} y1={15} x2={6} y2={5} strokeWidth={1} />
+                <line x1={-15} y1={37} x2={-10} y2={21} strokeWidth={1} />
+                <line x1={-15} y1={-7} x2={-10} y2={-11} strokeWidth={1} />
+              </g>
+
+              {/* Fries / Cubes */}
+              <g stroke="#00ff88" fill="rgba(0,255,136,0.1)">
+                <polygon points="15,0 35,0 35,20 15,20" strokeWidth={1} />
+                <polygon points="20,-10 40,-10 40,10 20,10" strokeWidth={1.5} />
+                <line x1={15} y1={0} x2={20} y2={-10} strokeWidth={1} />
+                <line x1={35} y1={0} x2={40} y2={-10} strokeWidth={1} />
+                <line x1={35} y1={20} x2={40} y2={10} strokeWidth={1} />
+                <line x1={15} y1={20} x2={20} y2={10} strokeWidth={1} />
+                
+                {/* Fries sticking out */}
+                <line x1={25} y1={-10} x2={23} y2={-26} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                <line x1={30} y1={-10} x2={32} y2={-29} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                <line x1={35} y1={-10} x2={37} y2={-23} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+                <line x1={22} y1={-5} x2={18} y2={-21} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" />
+              </g>
+            </motion.g>
+          </motion.g>
         </g>
-
-        {/* Plate + food (overhead) */}
-        <g>
-          <circle cx="80" cy="45.5" r="14.8" fill="none" stroke="#ffffff" strokeOpacity="0.92" strokeWidth="1" />
-          <circle cx="80" cy="45.5" r="11" fill="none" stroke="#00aaff" strokeOpacity="0.52" strokeWidth="0.8" />
-          <path
-            d="M73 45 C 74 39, 86 39, 88.5 44.2 C 90.6 48.8, 85.5 52.6, 79.8 52.3 C 74.5 52, 71.8 48.8, 73 45 Z"
-            fill="#00ff88"
-            fillOpacity="0.27"
-            stroke="#00ff88"
-            strokeOpacity="0.92"
-            strokeWidth="0.9"
-          />
-          <path d="M75 43.8 C 78 42.1, 82.2 42.2, 84.4 44.3" fill="none" stroke="#ffffff" strokeOpacity="0.75" strokeWidth="0.75" />
-        </g>
-
-        {/* Top-right glass */}
-        <g>
-          <ellipse cx="112" cy="31" rx="7" ry="2.9" fill="none" stroke="#ffffff" strokeOpacity="0.8" strokeWidth="0.88" />
-          <rect x="105" y="31" width="14" height="12" rx="2" fill="none" stroke="#00aaff" strokeOpacity="0.82" strokeWidth="0.9" />
-          <ellipse cx="112" cy="43" rx="7" ry="2.9" fill="none" stroke="#00ff88" strokeOpacity="0.7" strokeWidth="0.78" />
-          <path d="M108 34 L108 40" stroke="#ffffff" strokeOpacity="0.36" strokeWidth="0.75" />
-        </g>
-
-        {/* Holographic line accents */}
-        <path d="M35 24 L42 24 L42 18" fill="none" stroke="#00ff88" strokeOpacity="0.92" strokeWidth="0.95" strokeLinecap="round" />
-        <path d="M125 68 L118 68 L118 74" fill="none" stroke="#00ff88" strokeOpacity="0.92" strokeWidth="0.95" strokeLinecap="round" />
-
-        {/* Glowing route-like line through tray */}
-        <motion.path
-          d="M24 64 C 44 55, 65 49, 94 41 C 111 36, 122 33, 139 25"
-          fill="none"
-          stroke="#00ff88"
-          strokeWidth="1.45"
-          strokeOpacity="0.9"
-          strokeDasharray="5 6"
-          animate={{ strokeDashoffset: [-22, 0] }}
-          transition={{ duration: 1.9, repeat: Infinity, ease: "linear" }}
-        />
-
-        {/* Moving scanline sweep */}
-        <motion.rect
-          x="0"
-          y="-16"
-          width="160"
-          height="12"
-          fill="url(#dining-grid-glow)"
-          fillOpacity="0.14"
-          animate={{ y: [-16, 96] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-        />
-      </motion.svg>
-
-      {/* Static scanline texture */}
-      <svg viewBox="0 0 160 90" className="pointer-events-none absolute inset-0 h-full w-full opacity-55">
-        {SCANLINES.map((i) => {
-          const y = 2 + i * 3
-          return <line key={`scan-${i}`} x1="0" y1={y} x2="160" y2={y} stroke="#00ff88" strokeOpacity="0.13" strokeWidth="0.35" />
-        })}
       </svg>
-
-      {/* Fork animation */}
-      <motion.svg viewBox="0 0 160 90" className="pointer-events-none absolute inset-0 h-full w-full" initial={false}>
-        <motion.g
-          style={{ transformBox: "fill-box", transformOrigin: "center" }}
-          animate={{ rotate: [-6, -2, -6], y: [0, -0.9, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <rect x="44" y="30" width="2.2" height="29" rx="1" fill="#ffffff" />
-          <rect x="42.2" y="25" width="1" height="7" rx="0.4" fill="#00aaff" />
-          <rect x="43.8" y="25" width="1" height="7" rx="0.4" fill="#00aaff" />
-          <rect x="45.4" y="25" width="1" height="7" rx="0.4" fill="#00aaff" />
-          <rect x="47" y="25" width="1" height="7" rx="0.4" fill="#00aaff" />
-        </motion.g>
-      </motion.svg>
-
-      {/* Knife animation */}
-      <motion.svg viewBox="0 0 160 90" className="pointer-events-none absolute inset-0 h-full w-full" initial={false}>
-        <motion.g
-          style={{ transformBox: "fill-box", transformOrigin: "center" }}
-          animate={{ rotate: [5, 1.5, 5], y: [0, 0.9, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
-        >
-          <rect x="114" y="31" width="2.35" height="28" rx="1" fill="#ffffff" />
-          <path d="M116.35 24.2 L120.6 32 L116.35 32 Z" fill="#ffffff" />
-          <path d="M116.35 24.2 L118.3 31.4 L116.35 31.4 Z" fill="#00ff88" fillOpacity="0.85" />
-        </motion.g>
-      </motion.svg>
+      
+      {/* Screen Effects / Hologram Overlays */}
+      <div
+        className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-20"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(0, 255, 136, 0.5) 1px, transparent 1px)",
+          backgroundSize: "100% 4px",
+        }}
+      />
+      <div className="absolute inset-0 pointer-events-none z-30 shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]" />
     </div>
   )
 }
