@@ -15,7 +15,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -79,3 +78,5 @@ yarn-error.log*
 
 # --- claude ---
 .claude/
+
+.gitkeep
