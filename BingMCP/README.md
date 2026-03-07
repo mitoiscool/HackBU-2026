@@ -26,7 +26,8 @@ BingMCP/
 | `get_bus_locations` | — | Next arrivals for Inner Loop, Outer Loop, Night Owl, Express |
 | `get_dining_status` | `hall: str` | Open/closed + today's hours/intervals for Hinman, CIW, C4, Appalachian (ACC) |
 | `get_dining_menu` | `hall: str, date?: str` | Normalized Sodexo menu data for Hinman, CIW, C4, Appalachian |
-| `get_gym_capacity` | — | East Gym (Events Center) occupancy and hours |
+| `get_gym_capacity` | — | East Gym (Events Center) occupancy (percent + count) and open status |
+| `get_available_library_rooms` | `library: str, category: str` | Available study rooms at Bartle, Science, or UDC library |
 
 ## Transport
 
@@ -48,6 +49,7 @@ HOST=0.0.0.0 PORT=8000 python server.py
 |---------|--------|
 | Bus     | 20s    |
 | Laundry | 45s    |
+| Library | 1 min  |
 | Gym     | 2 min  |
 | Dining  | 5 min  |
 
@@ -199,7 +201,33 @@ Response schema used by tool:
 }
 ```
 
-### Current Dining Tool Output Schemas
+### Current Tool Output Schemas
+
+`get_gym_capacity()` returns:
+
+```json
+{
+  "capacity_percent": 42,
+  "is_open": true,
+  "count": 87
+}
+```
+
+`get_bus_locations()` returns:
+
+```json
+{
+  "routes": [
+    {
+      "name": "Inner Loop (Northbound)",
+      "next_arrival_minutes": 3,
+      "current_stop": "University Union",
+      "lat": 42.0887,
+      "lng": -75.9679
+    }
+  ]
+}
+```
 
 `get_dining_status(hall: str)` returns:
 
@@ -260,6 +288,43 @@ Response schema used by tool:
 - `GET data/menu/...` returns `200` for all 4 halls with key.
 - `POST layout/getComposition` returns `200` with key and includes resident dining hall `openingHours`.
 - `date` is required by upstream menu API; missing date returns upstream `500`.
+
+## Library API
+
+`get_available_library_rooms(library, category)` queries the LibCal room booking system at Binghamton University. A room is included in the result only if it has an open (unbooked) slot covering the current time.
+
+### Library & Category Mapping
+
+| Library | `lid` | Category | `gid` |
+|---------|-------|----------|-------|
+| `bartle` | 4610 | `group_study` | 7823 |
+| `bartle` | 4610 | `third_floor_projects` | 46677 |
+| `bartle` | 4610 | `media_viewing` | 30039 |
+| `bartle` | 4610 | `fine_arts_study` | 49381 |
+| `bartle` | 4610 | `bloomberg` | 7830 |
+| `science` | 4608 | `group_study` | 7832 |
+| `science` | 4608 | `collaboration_space` | 26438 |
+| `udc` | 4611 | `group_study` | 7835 |
+
+### Output Schema
+
+`get_available_library_rooms(library, category)` returns:
+
+```json
+{
+  "library": "bartle",
+  "category": "group_study",
+  "available_rooms": ["Room 101", "Room 204"]
+}
+```
+
+### API Details
+
+- Page URL: `https://libcal.binghamton.edu/spaces?lid={lid}&gid={gid}` (GET, extracts room names from JS)
+- Grid URL: `https://libcal.binghamton.edu/spaces/availability/grid` (POST, returns slot availability)
+- Both requests require `X-Requested-With: XMLHttpRequest` and `Referer` matching the page URL.
+
+---
 
 ## Setup & Running
 
