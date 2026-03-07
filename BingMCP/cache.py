@@ -6,6 +6,7 @@ that data actually changes:
   - bus:     20s   (real-time vehicle positions)
   - laundry: 45s   (washer/dryer state)
   - gym:     120s  (headcount changes slowly)
+  - library: 60s   (room slots refresh frequently)
   - dining:  300s  (hours/menu change rarely mid-service)
 
 Usage from any tool file:
@@ -18,6 +19,7 @@ _caches: dict[str, TTLCache] = {
     "bus":     TTLCache(maxsize=128, ttl=20),
     "laundry": TTLCache(maxsize=128, ttl=45),
     "gym":     TTLCache(maxsize=128, ttl=120),
+    "library": TTLCache(maxsize=64, ttl=60),
     "dining":  TTLCache(maxsize=128, ttl=300),
 }
 

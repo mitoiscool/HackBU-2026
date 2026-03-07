@@ -31,11 +31,11 @@ def main():
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
 
-    mcp = FastMCP("BingMCP")
+    mcp = FastMCP("BingMCP", host=host, port=port)
     load_tools_dynamically(mcp)
 
     print(f"Starting BingMCP SSE server on {host}:{port}", file=sys.stderr)
-    mcp.run(transport="sse", host=host, port=port)
+    mcp.run(transport="sse")
 
 if __name__ == "__main__":
     main()
