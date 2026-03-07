@@ -1,4 +1,5 @@
 import importlib
+import os
 import sys
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
@@ -27,9 +28,14 @@ def load_tools_dynamically(mcp: FastMCP, tools_dir: str = "tools"):
             print(f"Failed to load tool {module_name}: {e}", file=sys.stderr)
 
 def main():
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
+
     mcp = FastMCP("BingMCP")
     load_tools_dynamically(mcp)
-    mcp.run()
+
+    print(f"Starting BingMCP SSE server on {host}:{port}", file=sys.stderr)
+    mcp.run(transport="sse", host=host, port=port)
 
 if __name__ == "__main__":
     main()
