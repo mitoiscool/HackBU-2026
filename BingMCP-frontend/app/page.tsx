@@ -21,6 +21,7 @@ import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
 import { StatPanel, type StatEntry } from "@/features/chat/stat-panel/StatPanel"
 import { BaxterOverlay } from "@/components/baxter/BaxterOverlay"
+import { MobileBottomTabs } from "@/components/navigation/MobileBottomTabs"
 import { useChromeSpeechInput } from "@/features/chat/voice/useChromeSpeechInput"
 import {
   BUILDING_OPTIONS,
@@ -55,8 +56,12 @@ const BAXTER_TOOL_IMAGES: Record<string, StaticImageData[]> = {
 
 const BAXTER_FALLBACK_IMAGES: StaticImageData[] = [baxterthinking, baxterjumping, baxterfootball, baxterice]
 
-function pickBaxterImage(toolName: string): StaticImageData {
-  const pool = BAXTER_TOOL_IMAGES[toolName] ?? BAXTER_FALLBACK_IMAGES
+function pickRandomBaxterFallbackImage(): StaticImageData {
+  return BAXTER_FALLBACK_IMAGES[Math.floor(Math.random() * BAXTER_FALLBACK_IMAGES.length)]
+}
+
+function pickBaxterImage(toolName?: string | null): StaticImageData {
+  const pool = toolName ? (BAXTER_TOOL_IMAGES[toolName] ?? BAXTER_FALLBACK_IMAGES) : BAXTER_FALLBACK_IMAGES
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
@@ -146,7 +151,7 @@ function SettingsPopover({
           <Settings2 className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72 p-3">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-72 max-w-[calc(100vw-1rem)] p-3">
         <div className="space-y-3">
           <div className="space-y-2">
             <DropdownMenuLabel className="px-0 py-0">Theme</DropdownMenuLabel>
@@ -246,8 +251,10 @@ export default function ChatWindow() {
   const [displayName, setDisplayName] = useState("")
   const [baxterImageSrc, setBaxterImageSrc] = useState<StaticImageData | null>(null)
   const [baxterOverlayVisible, setBaxterOverlayVisible] = useState(false)
-  const baxterShownRef = useRef(false)
-  const baxterDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const baxterDismissedRef = useRef(false)
+  const baxterLastToolNameRef = useRef<string | null>(null)
+  const baxterShouldShowAfterResponseRef = useRef(false)
+  const baxterWasBusyRef = useRef(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -337,44 +344,37 @@ export default function ChatWindow() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  // Reset Baxter overlay flag when a new request starts
+  // Track the final tool used during a response without changing the visible overlay mid-stream.
   useEffect(() => {
-    if (status === "submitted") {
-      baxterShownRef.current = false
-      if (baxterDismissTimer.current) {
-        clearTimeout(baxterDismissTimer.current)
-        baxterDismissTimer.current = null
-      }
-      setBaxterOverlayVisible(false)
-    }
-  }, [status])
-
-  // Show Baxter overlay on first tool call of each request
-  useEffect(() => {
-    if (!baxterEnabled) return
     if (status !== "streaming") return
-    if (baxterShownRef.current) return
 
     const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant")
     if (!lastAssistantMsg) return
 
-    const firstToolPart = (lastAssistantMsg.parts ?? []).find(
+    const toolParts = (lastAssistantMsg.parts ?? []).filter(
       (p) => p.type.startsWith("tool-") || p.type === "tool-invocation" || p.type === "dynamic-tool"
     )
-    if (!firstToolPart) return
+    const lastToolPart = toolParts.at(-1)
+    if (!lastToolPart) return
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p = firstToolPart as any
-    const toolName: string = p.toolName || p.toolInvocation?.toolName || p.name || "unknown"
+    const p = lastToolPart as any
+    baxterLastToolNameRef.current = p.toolName || p.toolInvocation?.toolName || p.name || "unknown"
+  }, [messages, status])
 
-    baxterShownRef.current = true
-    setBaxterImageSrc(pickBaxterImage(toolName))
-    setBaxterOverlayVisible(true)
+  useEffect(() => {
+    const isBusy = status === "submitted" || status === "streaming"
 
-    baxterDismissTimer.current = setTimeout(() => {
-      setBaxterOverlayVisible(false)
-    }, 2500)
-  }, [messages, baxterEnabled, status])
+    if (!isBusy && baxterWasBusyRef.current && baxterEnabled && baxterShouldShowAfterResponseRef.current) {
+      baxterDismissedRef.current = false
+      setBaxterImageSrc(pickBaxterImage(baxterLastToolNameRef.current))
+      setBaxterOverlayVisible(true)
+      baxterShouldShowAfterResponseRef.current = false
+      baxterLastToolNameRef.current = null
+    }
+
+    baxterWasBusyRef.current = isBusy
+  }, [baxterEnabled, status])
 
   useEffect(() => {
     let active = true
@@ -385,7 +385,13 @@ export default function ChatWindow() {
       try {
         const storedBaxter = window.localStorage.getItem("baxter")
         if (storedBaxter === "true" || storedBaxter === "false") {
-          setBaxterEnabled(storedBaxter === "true")
+          const enabled = storedBaxter === "true"
+          setBaxterEnabled(enabled)
+          if (enabled) {
+            baxterDismissedRef.current = false
+            setBaxterImageSrc(pickRandomBaxterFallbackImage())
+            setBaxterOverlayVisible(true)
+          }
         }
 
         const storedName = window.localStorage.getItem("name")
@@ -423,6 +429,17 @@ export default function ChatWindow() {
 
   const handleBaxterChange = (enabled: boolean) => {
     setBaxterEnabled(enabled)
+    baxterShouldShowAfterResponseRef.current = enabled && (status === "submitted" || status === "streaming")
+    baxterLastToolNameRef.current = null
+    baxterDismissedRef.current = false
+
+    if (enabled) {
+      setBaxterImageSrc(pickRandomBaxterFallbackImage())
+      setBaxterOverlayVisible(true)
+    } else {
+      setBaxterOverlayVisible(false)
+    }
+
     try {
       window.localStorage.setItem("baxter", String(enabled))
     } catch {
@@ -492,6 +509,11 @@ export default function ChatWindow() {
       preferredDiningHall: preferredDiningHall || undefined,
     })
 
+    baxterDismissedRef.current = false
+    baxterLastToolNameRef.current = null
+    baxterShouldShowAfterResponseRef.current = baxterEnabled
+    setBaxterOverlayVisible(false)
+
     sendMessage(
       { parts: [{ type: "text", text }] },
       {
@@ -502,7 +524,7 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex h-svh w-full overflow-hidden">
+    <div className="mobile-content-safe flex h-svh w-full overflow-hidden md:pb-0">
       {isTestModeEnabled && (
         <TestMode
           forcedThinkingExtraMs={forcedThinkingExtraMs}
@@ -514,7 +536,10 @@ export default function ChatWindow() {
         <BaxterOverlay
           src={baxterImageSrc}
           visible={baxterOverlayVisible}
-          onDismiss={() => setBaxterOverlayVisible(false)}
+          onDismiss={() => {
+            baxterDismissedRef.current = true
+            setBaxterOverlayVisible(false)
+          }}
         />
       )}
 
@@ -527,7 +552,7 @@ export default function ChatWindow() {
             animate={{ width: 304, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="shrink-0 h-full border-r border-border bg-background/80 backdrop-blur-sm overflow-hidden"
+            className="hidden h-full shrink-0 overflow-hidden border-r border-border bg-background/80 backdrop-blur-sm md:block"
             style={{ minWidth: 0 }}
           >
             <div className="w-[304px] h-full">
@@ -538,30 +563,45 @@ export default function ChatWindow() {
       </AnimatePresence>
 
       {/* Right: chat column */}
-      <div className="relative flex flex-1 flex-col overflow-hidden items-center min-w-0">
-
-      {/* Floating settings button (does not reserve header space) */}
-      <div className="pointer-events-none absolute right-4 top-2 z-20">
-        <div className="pointer-events-auto flex items-center gap-1">
-        <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground">
-          <Link href="/dashboard" aria-label="Open dashboard">
-            <LayoutDashboard className="h-4 w-4" />
-          </Link>
-        </Button>
-        <SettingsPopover
-          baxterEnabled={baxterEnabled}
-          onBaxterChange={handleBaxterChange}
-          homeBuilding={homeBuilding}
-          onHomeBuildingChange={handleHomeBuildingChange}
-          preferredDiningHall={preferredDiningHall}
-          onPreferredDiningHallChange={handlePreferredDiningHallChange}
-          displayName={displayName}
-          onDisplayNameChange={handleDisplayNameChange}
-        />
+      <div className="relative flex min-w-0 flex-1 flex-col items-center overflow-hidden">
+        <div
+          className="flex w-full items-center justify-end px-4 md:hidden"
+          style={{ paddingTop: "max(env(safe-area-inset-top), 0.5rem)" }}
+        >
+          <SettingsPopover
+            baxterEnabled={baxterEnabled}
+            onBaxterChange={handleBaxterChange}
+            homeBuilding={homeBuilding}
+            onHomeBuildingChange={handleHomeBuildingChange}
+            preferredDiningHall={preferredDiningHall}
+            onPreferredDiningHallChange={handlePreferredDiningHallChange}
+            displayName={displayName}
+            onDisplayNameChange={handleDisplayNameChange}
+          />
         </div>
-      </div>
 
-      <div className="flex flex-1 w-full max-w-screen-md flex-col overflow-hidden">
+        {/* Floating settings button (desktop only) */}
+        <div className="pointer-events-none absolute right-4 top-2 z-20 hidden md:block">
+          <div className="pointer-events-auto flex items-center gap-1">
+            <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground">
+              <Link href="/dashboard" aria-label="Open dashboard">
+                <LayoutDashboard className="h-4 w-4" />
+              </Link>
+            </Button>
+            <SettingsPopover
+              baxterEnabled={baxterEnabled}
+              onBaxterChange={handleBaxterChange}
+              homeBuilding={homeBuilding}
+              onHomeBuildingChange={handleHomeBuildingChange}
+              preferredDiningHall={preferredDiningHall}
+              onPreferredDiningHallChange={handlePreferredDiningHallChange}
+              displayName={displayName}
+              onDisplayNameChange={handleDisplayNameChange}
+            />
+          </div>
+        </div>
+
+        <div className="flex w-full max-w-screen-md flex-1 flex-col overflow-hidden">
 
         {/* Empty state */}
         <AnimatePresence>
@@ -572,11 +612,11 @@ export default function ChatWindow() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="flex flex-1 flex-col justify-center px-4 md:px-8"
+              className="flex flex-1 flex-col justify-center px-4 pt-4 md:px-8 md:pt-0"
             >
-              <div className="mb-10">
+              <div className="mb-8 md:mb-10">
                 <motion.h1
-                  className="text-3xl font-semibold"
+                  className="text-2xl font-semibold sm:text-3xl"
                   initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: EASE }}
@@ -584,7 +624,7 @@ export default function ChatWindow() {
                   {heroName ? `Hello there, ${heroName}!` : "Hello there!"}
                 </motion.h1>
                 <motion.p
-                  className="text-xl text-muted-foreground mt-1"
+                  className="mt-1 text-lg text-muted-foreground sm:text-xl"
                   initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: EASE, delay: 0.06 }}
@@ -592,7 +632,7 @@ export default function ChatWindow() {
                   What do you want to tackle on campus?
                 </motion.p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {SCENARIOS.map((s, i) => (
                   <motion.div
                     key={s.title}
@@ -615,7 +655,7 @@ export default function ChatWindow() {
 
         {/* Chat thread */}
         {messages.length > 0 && (
-          <div className="flex flex-1 flex-col gap-6 px-4 md:px-8 pt-8 pb-4 overflow-y-auto overflow-x-hidden">
+          <div className="flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-4 pb-6 pt-3 md:px-8 md:pb-4 md:pt-8">
             {messages.map((msg) => {
               const seenToolsForMessage = new Set<string>()
 
@@ -632,9 +672,9 @@ export default function ChatWindow() {
                       <Bot className="h-4 w-4" />
                     </div>
                   )}
-                  <div className={`max-w-[80%] ${msg.role === "user"
-                    ? "rounded-2xl px-4 py-2.5 text-sm leading-relaxed bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
-                    : "text-sm leading-relaxed"
+                  <div className={`max-w-[88%] sm:max-w-[82%] ${msg.role === "user"
+                    ? "rounded-2xl rounded-br-sm bg-primary px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words text-primary-foreground"
+                    : "break-words text-sm leading-relaxed"
                     }`}>
                     {msg.role === "user" ? (
                       msg.parts?.filter((p): p is { type: "text"; text: string } => p.type === "text").map((p) => p.text).join("") ?? ""
@@ -753,7 +793,7 @@ export default function ChatWindow() {
                 <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-destructive/10 text-destructive mt-0.5">
                   <Bot className="h-4 w-4" />
                 </div>
-                <div className="max-w-[80%] rounded-2xl rounded-bl-sm bg-destructive/10 border border-destructive/20 px-4 py-2.5 text-sm text-destructive space-y-1">
+                <div className="max-w-[88%] rounded-2xl rounded-bl-sm border border-destructive/20 bg-destructive/10 px-4 py-2.5 text-sm text-destructive sm:max-w-[82%]">
                   <p className="font-medium">Something went wrong</p>
                   <p className="text-destructive/80 font-mono text-xs break-all">{error.message}</p>
                 </div>
@@ -765,7 +805,7 @@ export default function ChatWindow() {
         )}
 
         {/* Input */}
-        <div className="w-full flex-shrink-0 px-4 md:px-8 pb-4 pt-2">
+        <div className="w-full flex-shrink-0 px-4 pb-3 pt-2 md:px-8 md:pb-4">
           <div className="relative flex w-full flex-col rounded-3xl bg-muted/50 focus-within:ring-1 focus-within:ring-ring transition-shadow">
             <Textarea
               ref={inputRef}
@@ -835,6 +875,8 @@ export default function ChatWindow() {
       </div>
 
       </div>{/* end chat column */}
+
+      <MobileBottomTabs activeRoute="chat" />
     </div>
   )
 }

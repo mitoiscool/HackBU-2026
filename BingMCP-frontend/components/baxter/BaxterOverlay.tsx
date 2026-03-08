@@ -15,8 +15,7 @@ export function BaxterOverlay({ src, visible, onDismiss }: BaxterOverlayProps) {
       {visible && src && (
         <motion.div
           key="baxter-overlay"
-          className="fixed right-0 bottom-0 z-50 flex items-end justify-end pointer-events-none"
-          style={{ right: 0, bottom: 0 }}
+          className="pointer-events-none fixed right-2 top-[42%] z-50 flex -translate-y-1/2 items-center justify-end md:right-4 md:top-1/2"
         >
           <motion.div
             className="cursor-pointer pointer-events-auto"
@@ -24,13 +23,14 @@ export function BaxterOverlay({ src, visible, onDismiss }: BaxterOverlayProps) {
             animate={{ scale: 1, opacity: 1, rotate: 0, x: 0 }}
             exit={{ scale: 0.7, opacity: 0, rotate: 4, x: 60 }}
             transition={{ type: "spring", stiffness: 350, damping: 22 }}
-            style={{ height: "75vh", width: "auto" }}
+            style={{ width: "clamp(84px, 22vw, 180px)" }}
             onClick={onDismiss}
           >
             <Image
               src={src}
               alt="Baxter"
-              style={{ height: "75vh", width: "auto", objectFit: "contain" }}
+              className="h-auto w-full object-contain"
+              sizes="(max-width: 640px) 96px, (max-width: 1024px) 144px, 180px"
               priority
             />
           </motion.div>

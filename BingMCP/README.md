@@ -12,6 +12,7 @@ The server loads tools dynamically from `tools/*/tool.py` and currently exposes:
 - `get_dining_menu(hall: str, date?: str)`
 - `get_gym_capacity()`
 - `get_available_library_rooms(library?: str, category?: str)`
+- `get_bengaged_events(limit?: int, offset?: int, search?: str)`
 
 Each tool is wrapped with cache + graceful error handling. On fetch failures, tools return:
 
@@ -33,6 +34,7 @@ BingMCP/
   tools/
     bus/tool.py
     dining/tool.py
+    events/tool.py
     gym/tool.py
     laundry/tool.py
     library/tool.py
@@ -122,10 +124,33 @@ Configured in `cache.py`:
 - Upstream: LibCal (`/spaces` + `/spaces/availability/grid`)
 - Supported libraries and categories are defined in `tools/library/tool.py`
 
+### Events
+
+- Upstream: B-Engaged mobile endpoint
+  (`https://bengaged.binghamton.edu/mobile_ws/v17/mobile_events_list`)
+- Timeframe: upcoming events only (`show=upcoming`)
+- Data model: normalized event objects (`event_id`, `name`, `dates_text`, `location`,
+  `organization`, `url`, `tags`, etc.)
+- Freshness model:
+  - A background poller refreshes the in-memory snapshot every 15 minutes
+  - Tool calls read from this cached snapshot (no live fetch per call)
+  - On refresh errors, last successful snapshot is served with `stale: true`
+
+Tool signature:
+
+```text
+get_bengaged_events(limit: int = 100, offset: int = 0, search: str = "")
+```
+
+Response metadata includes:
+`source`, `timeframe`, `last_refreshed_at`, `stale`, `total_events`,
+`offset`, `limit`, `returned_count`, `has_more`, `events`
+
 ## Adding a New Tool
 
 1. Create `tools/<name>/tool.py`
 2. Export `register(mcp: FastMCP)`
 3. Register one or more `@mcp.tool()` functions
+4. Optional: export async `startup()` / `shutdown()` hooks for background tasks
 
 `server.py` auto-loads any `tools/*/tool.py` file on startup.

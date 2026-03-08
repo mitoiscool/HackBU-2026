@@ -9,6 +9,7 @@ import { BusVisual } from "@/components/visuals/bus/BusVisual"
 import { DiningVisual } from "@/components/visuals/dining/DiningVisual"
 import { GymVisual } from "@/components/visuals/gym/GymVisual"
 import { LaundryVisual } from "@/components/visuals/laundry/LaundryVisual"
+import { MobileBottomTabs } from "@/components/navigation/MobileBottomTabs"
 import { getToolMeta } from "@/features/chat/tool-calls/meta"
 import { BusResult } from "@/features/chat/tool-calls/bus-result"
 import { DiningMenuResult } from "@/features/chat/tool-calls/dining-menu-result"
@@ -100,11 +101,13 @@ function OverlayModal({
   open,
   title,
   onClose,
+  mobileFullscreen = false,
   children,
 }: {
   open: boolean
   title: string
   onClose: () => void
+  mobileFullscreen?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -115,7 +118,11 @@ function OverlayModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+          className={`fixed inset-0 z-50 flex ${
+            mobileFullscreen
+              ? "items-end justify-center p-0 md:items-center md:p-8"
+              : "items-center justify-center p-4 md:p-8"
+          }`}
         >
           <button
             type="button"
@@ -129,7 +136,11 @@ function OverlayModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.25, ease: EASE }}
-            className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card"
+            className={`relative z-10 flex w-full flex-col overflow-hidden bg-card ${
+              mobileFullscreen
+                ? "h-svh max-h-svh max-w-none rounded-none border-x-0 border-b-0 border-t border-border md:h-auto md:max-h-[85vh] md:max-w-2xl md:rounded-2xl md:border"
+                : "max-h-[85vh] max-w-2xl rounded-2xl border border-border"
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
@@ -138,7 +149,7 @@ function OverlayModal({
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+            <div className="flex-1 overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-4">{children}</div>
           </motion.div>
         </motion.div>
       )}
@@ -384,8 +395,8 @@ export default function DashboardPage() {
   const isActiveMenuLoading = activeDiningHall ? Boolean(menuLoadingByHall[activeDiningHall]) : false
 
   return (
-    <div className="min-h-svh bg-background">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 px-4 py-4 md:px-8 md:py-6">
+    <div className="mobile-content-safe min-h-svh bg-background md:pb-0">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-3 px-4 py-4 md:gap-4 md:px-8 md:py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-semibold">
@@ -394,8 +405,8 @@ export default function DashboardPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">Dining, capacity, and transit numbers in one view.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm" className="rounded-lg">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <Button asChild variant="outline" size="sm" className="hidden rounded-lg sm:inline-flex">
               <Link href="/">
                 <ArrowLeft className="mr-1.5 h-4 w-4" />
                 Back to Chat
@@ -430,7 +441,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2">
             <DashboardCard toolName="get_gym_capacity" title="East Gym">
               <GymVisual className="max-w-none w-full" />
               {isSectionOk(dashboard?.gym) ? (
@@ -448,12 +459,12 @@ export default function DashboardPage() {
             </DashboardCard>
 
             <DashboardCard toolName="get_laundry_availability" title="Laundry Room">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <WashingMachine className="h-4 w-4 text-primary" />
                 <select
                   value={laundryBuilding}
                   onChange={(event) => handleLaundryBuildingChange(event.target.value)}
-                  className={`${SELECT_CLASSNAME} flex-1`}
+                  className={`${SELECT_CLASSNAME} w-full sm:flex-1`}
                 >
                   {BUILDING_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -476,7 +487,7 @@ export default function DashboardPage() {
             <DashboardCard toolName="get_bus_locations" title="Bus Routes">
               <BusVisual className="max-w-none w-full" />
 
-              <div className="flex items-center gap-4 rounded-lg border border-border bg-background/60 px-3.5 py-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-background/60 px-3.5 py-2 text-xs text-muted-foreground">
                 <span>
                   Active routes: <span className="font-mono font-semibold text-foreground">{busSummary.routeCount}</span>
                 </span>
@@ -538,6 +549,7 @@ export default function DashboardPage() {
       <OverlayModal
         open={isBusOverlayOpen}
         title="All Active Bus Routes"
+        mobileFullscreen
         onClose={() => setIsBusOverlayOpen(false)}
       >
         {isSectionOk(dashboard?.bus) ? (
@@ -550,6 +562,7 @@ export default function DashboardPage() {
       <OverlayModal
         open={Boolean(activeDiningHall)}
         title={activeDiningOption?.label ?? "Dining Hall"}
+        mobileFullscreen
         onClose={() => setActiveDiningHall(null)}
       >
         <div className="space-y-3">
@@ -577,6 +590,8 @@ export default function DashboardPage() {
           )}
         </div>
       </OverlayModal>
+
+      <MobileBottomTabs activeRoute="dashboard" />
     </div>
   )
 }

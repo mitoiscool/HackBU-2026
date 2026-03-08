@@ -45,6 +45,9 @@
   --sidebar-ring: oklch(0.38 0.086 161.4 / 40%);
   --tool-call-bg: oklch(0.95 0.010 150);
   --tool-call-border: oklch(0.88 0.025 150);
+  --mobile-nav-height: 4rem;
+  --mobile-nav-total-height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+  --mobile-content-bottom-spacing: calc(var(--mobile-nav-total-height) + 0.5rem);
 }
 
 .dark {
@@ -146,5 +149,16 @@
   body {
     @apply bg-background text-foreground;
     transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}
+
+@layer utilities {
+  .mobile-content-safe {
+    padding-bottom: var(--mobile-content-bottom-spacing);
+  }
+
+  .mobile-nav-safe {
+    height: var(--mobile-nav-total-height);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

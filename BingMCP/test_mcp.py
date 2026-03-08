@@ -1,7 +1,7 @@
 """
-test_mcp.py — Integration test for the BingMCP SSE server.
+test_mcp.py — Integration test for the BingMCP Streamable HTTP server.
 
-Run this WHILE the MCP server is running (python server.py):
+Run this WHILE the MCP server is running (python server.py --transport http):
 
     python test_mcp.py                      # test all tools with default args
     python test_mcp.py laundry windham_g14  # test one tool by name
@@ -14,19 +14,19 @@ import asyncio
 import json
 import sys
 
-MCP_URL = "http://localhost:8000/sse"
+MCP_URL = "http://localhost:8000/mcp"
 
 
 async def list_tools():
     """Connect to the MCP server and print every registered tool + schema."""
     from mcp.client.session import ClientSession
-    from mcp.client.sse import sse_client
+    from mcp.client.streamable_http import streamable_http_client
 
     print(f"\n{'='*60}")
     print(f"  BingMCP Tool Discovery  ({MCP_URL})")
     print(f"{'='*60}\n")
 
-    async with sse_client(MCP_URL) as (read, write):
+    async with streamable_http_client(MCP_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools_resp = await session.list_tools()
@@ -48,14 +48,14 @@ async def list_tools():
 async def call_tool(tool_name: str, args: dict):
     """Call a specific MCP tool and print the result."""
     from mcp.client.session import ClientSession
-    from mcp.client.sse import sse_client
+    from mcp.client.streamable_http import streamable_http_client
 
     print(f"\n{'─'*60}")
     print(f"  Calling tool: {tool_name}")
     print(f"  Args:         {json.dumps(args)}")
     print(f"{'─'*60}")
 
-    async with sse_client(MCP_URL) as (read, write):
+    async with streamable_http_client(MCP_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             result = await session.call_tool(tool_name, args)
@@ -73,11 +73,12 @@ async def call_tool(tool_name: str, args: dict):
 # Default test cases for each tool
 DEFAULT_TESTS: list[tuple[str, dict]] = [
     ("get_laundry_availability", {"building": "windham_g14"}),
-    ("get_bus_locations",        {"route": "1"}),
+    ("get_bus_locations",        {}),
     ("get_gym_capacity",         {}),
-    ("get_dining_status",        {}),
-    ("get_dining_menu",          {}),
+    ("get_dining_status",        {"hall": "hinman"}),
+    ("get_dining_menu",          {"hall": "hinman"}),
     ("get_available_library_rooms", {}),
+    ("get_bengaged_events",      {"limit": 5}),
 ]
 
 
@@ -87,7 +88,7 @@ async def run_all():
         tool_names = await list_tools()
     except Exception as e:
         print(f"\n[ERROR] Could not connect to MCP server at {MCP_URL}")
-        print(f"        Make sure 'python server.py' is running first.")
+        print(f"        Make sure 'python server.py --transport http' is running first.")
         print(f"        Detail: {e}\n")
         sys.exit(1)
 
@@ -136,7 +137,7 @@ async def run_single(tool_name: str, *extra_args: str):
         await call_tool(tool_name, args)
     except Exception as e:
         print(f"\n[ERROR] Could not connect to MCP server at {MCP_URL}")
-        print(f"        Make sure 'python server.py' is running first.")
+        print(f"        Make sure 'python server.py --transport http' is running first.")
         print(f"        Detail: {e}\n")
         sys.exit(1)
 

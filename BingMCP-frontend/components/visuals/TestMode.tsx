@@ -153,15 +153,15 @@ export function TestMode({ forcedThinkingExtraMs, onForcedThinkingExtraMsChange 
   const ActiveVisual = isResolved ? resolvedVisual.component : null
 
   return (
-    <section className="mt-4 rounded-2xl border border-border bg-card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="mt-4 rounded-2xl border border-border bg-card p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-foreground">Visual Test Mode</h2>
           <p className="text-sm text-muted-foreground">Switch tabs to render each real loading visual module.</p>
         </div>
-        <div className="min-w-[260px] rounded-lg border border-border bg-background px-3 py-2">
+        <div className="w-full rounded-lg border border-border bg-background px-3 py-2 sm:w-auto sm:min-w-[260px]">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Forced thinking extra time</p>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <input
               type="range"
               min={0}
@@ -170,7 +170,7 @@ export function TestMode({ forcedThinkingExtraMs, onForcedThinkingExtraMsChange 
               value={effectiveForcedThinkingExtraMs}
               onChange={(event) => handleForcedThinkingExtraMsChange(Number(event.target.value))}
               aria-label="Forced thinking extra time"
-              className="h-2 w-full cursor-pointer accent-primary"
+              className="h-2 min-w-[180px] flex-1 cursor-pointer accent-primary"
             />
             <input
               type="number"
@@ -188,7 +188,7 @@ export function TestMode({ forcedThinkingExtraMs, onForcedThinkingExtraMsChange 
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[240px_1fr]">
-        <nav className="flex flex-wrap gap-2 lg:flex-col" aria-label="Loading visual tabs">
+        <nav className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0" aria-label="Loading visual tabs">
           {VISUALS.map((visual) => {
             const Icon = visual.icon
             const isActive = visual.id === activeVisualId
@@ -199,7 +199,7 @@ export function TestMode({ forcedThinkingExtraMs, onForcedThinkingExtraMsChange 
                 type="button"
                 onClick={() => setActiveVisualId(visual.id)}
                 className={[
-                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition",
+                  "flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition",
                   isActive
                     ? "border-foreground/30 bg-foreground/5 text-foreground"
                     : "border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground",
@@ -213,8 +213,8 @@ export function TestMode({ forcedThinkingExtraMs, onForcedThinkingExtraMsChange 
           })}
         </nav>
 
-        <div className="rounded-xl border border-border bg-background p-4">
-          <div className="h-64 w-full overflow-hidden rounded-xl border border-border bg-muted/30">
+        <div className="rounded-xl border border-border bg-background p-3 sm:p-4">
+          <div className="h-52 w-full overflow-hidden rounded-xl border border-border bg-muted/30 sm:h-64">
             {ActiveVisual ? <ActiveVisual /> : null}
           </div>
 
