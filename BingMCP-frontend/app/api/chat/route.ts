@@ -65,6 +65,7 @@ export async function POST(req: Request) {
         messages,
         tools,
         stopWhen: stepCountIs(5),
+        // @ts-expect-error AI SDK types are out of sync with installed version
         onStepStart: (step) => {
             stepNum++
             logMCP(`Step ${stepNum} start`, { type: step.stepType })
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
             }
             if (step.toolResults?.length) {
                 for (const tr of step.toolResults) {
+                    // @ts-expect-error AI SDK types out of sync
                     logMCP(`  Tool result: ${tr.toolName}`, tr.result)
                 }
             }

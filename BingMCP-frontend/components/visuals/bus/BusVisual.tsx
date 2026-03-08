@@ -1,13 +1,23 @@
 "use client"
 
+import React, { useMemo } from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+
+interface FaceProps {
+  w: number | string
+  h: number | string
+  transform: string
+  color: string
+  bg?: string
+  children?: React.ReactNode
+}
 
 interface BusVisualProps {
   className?: string
 }
 
-const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: any) => (
+const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: FaceProps) => (
   <div
     className="absolute border overflow-hidden"
     style={{
@@ -33,7 +43,6 @@ const Bus3D = () => {
   const l = 80 // length
   const h = 36 // height
   const cGreen = "#00ff88"
-  const cBlue = "#00aaff"
 
   return (
     <motion.div
@@ -99,17 +108,36 @@ const Bus3D = () => {
   )
 }
 
+interface ParticleData {
+  id: number
+  startX: number
+  delay: number
+  duration: number
+  zPos: number
+}
+
 const Particles = () => {
+  const [particles, setParticles] = React.useState<ParticleData[]>([])
+
+  React.useEffect(() => {
+    const generated = Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      startX: (Math.random() - 0.5) * 80,
+      delay: Math.random() * 0.8,
+      duration: 0.5 + Math.random() * 0.5,
+      zPos: Math.random() * 20 + 5,
+    }))
+    setParticles(generated)
+  }, [])
+
+  if (particles.length === 0) return null
+
   return (
     <>
-      {[...Array(15)].map((_, i) => {
-        const startX = (Math.random() - 0.5) * 80
-        const delay = Math.random() * 0.8
-        const duration = 0.5 + Math.random() * 0.5
-        const zPos = Math.random() * 20 + 5
+      {particles.map(({ id, startX, delay, duration, zPos }) => {
         return (
           <motion.div
-            key={i}
+            key={id}
             className="absolute left-1/2 top-1/2"
             style={{
               width: 2,
