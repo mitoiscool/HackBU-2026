@@ -70,6 +70,9 @@ chmod +x run.sh
 python server.py
 ```
 
+Use this mode for local stdio MCP clients only. It does not expose a network
+HTTP endpoint for the frontend.
+
 ### HTTP mode (Streamable HTTP transport)
 
 ```bash
@@ -81,6 +84,15 @@ In HTTP mode, the server listens on:
 - Host: `localhost`
 - Port: `8000`
 - MCP endpoint: `http://localhost:8000/mcp`
+
+## Transport Notes
+
+- Supported run modes in this server:
+  - `stdio` (`python server.py`)
+  - Streamable HTTP (`python server.py --transport http`, endpoint `/mcp`)
+- For `BingMCP-frontend`, always run the backend with `--transport http`.
+- If you see tool mismatches or 404s, make sure no stale process is still
+  bound to port `8000` from an older server run.
 
 ## Cache TTLs
 

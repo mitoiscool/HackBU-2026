@@ -9,7 +9,14 @@ import { ToolResultRenderer } from "./tool-result-renderer"
 import { ToolLoadingRenderer } from "./tool-loading-renderer"
 import { ToolCallCardProps } from "./types"
 
-export function ToolCallCard({ toolName, state, result, isVisualUnique = true, forcedThinkingExtraMs = 0 }: ToolCallCardProps) {
+export function ToolCallCard({
+    toolName,
+    state,
+    result,
+    isVisualUnique = true,
+    forcedThinkingExtraMs = 0,
+    collapseOnComplete = false,
+}: ToolCallCardProps) {
     const [expanded, setExpanded] = useState(true)
     const [showResult, setShowResult] = useState(false)
     const [startTime] = useState(() => Date.now())
@@ -26,6 +33,21 @@ export function ToolCallCard({ toolName, state, result, isVisualUnique = true, f
             return () => clearTimeout(timer)
         }
     }, [forcedThinkingExtraMs, isComplete, startTime])
+
+    useEffect(() => {
+        if (!isComplete || !collapseOnComplete) return
+
+        let active = true
+        Promise.resolve().then(() => {
+            if (active) {
+                setExpanded(false)
+            }
+        })
+
+        return () => {
+            active = false
+        }
+    }, [collapseOnComplete, isComplete])
 
     return (
         <motion.div

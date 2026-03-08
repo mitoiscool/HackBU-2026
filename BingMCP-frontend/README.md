@@ -4,7 +4,8 @@ Next.js frontend for Baxter, a Binghamton campus assistant with:
 
 - Chat UI that can call MCP tools through the AI SDK
 - Live dashboard for bus, gym, laundry, and dining status/menu
-- User preferences (laundry room + preferred dining hall) saved in local storage
+- Baxter Mode overlays that spawn persistent Baxter mascots in different screen positions
+- User preferences and settings saved in local storage (Baxter Mode, Expanded Tool Calls, laundry room, preferred dining hall, dietary preference)
 
 ## Stack
 
@@ -28,6 +29,30 @@ API:
 - `GET /api/dashboard` - Aggregated tool snapshot (gym, bus, laundry, dining status)
 - `GET /api/dashboard/menu?hall=<hall>` - Dining menu for one hall
 
+## Settings and Preferences
+
+Chat settings currently include:
+
+- `Baxter Mode` (on/off)
+- `Expanded Tool Calls` (on/off)
+- `Laundry Room` (dropdown)
+- `Preferred Dining Hall` (dropdown)
+- `Dietary Preferences` (multi-select: `vegetarian`, `halal`, `gluten_free`)
+- `Name` (hero greeting personalization)
+
+Preference storage keys:
+
+- `baxter`
+- `expandedToolCalls`
+- `building`
+- `preferredDiningHall`
+- `dietaryPreferences`
+- `name`
+
+The chat client sends preferences with each message in `POST /api/chat` request body.
+The API injects them into Baxter's system context. When dietary preferences are set,
+Baxter is instructed to prioritize/filter dining menu suggestions for those diets.
+
 ## Environment Variables
 
 Create `.env.local` in `BingMCP-frontend/`:
@@ -42,6 +67,10 @@ Notes:
 
 - `GEMINI_MODEL` is optional; defaults to `gemini-3-flash-preview`
 - `MCP_SERVER_URL` is optional; defaults to `http://localhost:8000/mcp`
+- The frontend is transport-aware:
+  - It tries the configured endpoint first
+  - It can fall back between `/mcp` (HTTP transport) and `/sse` (SSE transport)
+    if one mode is unavailable
 
 ## Run Locally
 
@@ -52,6 +81,13 @@ npm run dev
 ```
 
 Then open [http://localhost:3000](http://localhost:3000).
+
+## Baxter Mode
+
+- Toggle Baxter Mode from the chat settings menu
+- When enabled, Baxter can spawn on initial load and after tool-backed responses
+- Each new Baxter appears in a different part of the screen when possible
+- Existing Baxters stay visible until you click that specific Baxter off
 
 ## Scripts
 
@@ -67,5 +103,7 @@ Then open [http://localhost:3000](http://localhost:3000).
 - MCP client setup lives in `lib/server/mcp-client.ts`
 - Chat and dashboard endpoints create short-lived MCP client connections per request
 - Tool results are normalized server-side before being returned to UI components
+- The Python backend must be started in HTTP mode for primary compatibility:
+  `python ../BingMCP/server.py --transport http`
 
 If you run this frontend against the Python server in `../BingMCP`, make sure `MCP_SERVER_URL` matches the transport/endpoint that server exposes in your local setup.

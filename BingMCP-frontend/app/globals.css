@@ -154,11 +154,32 @@
 
 @layer utilities {
   .mobile-content-safe {
-    padding-bottom: var(--mobile-content-bottom-spacing);
+    padding-bottom: 0;
+  }
+
+  .mobile-device-only {
+    display: none;
   }
 
   .mobile-nav-safe {
-    height: var(--mobile-nav-total-height);
-    padding-bottom: env(safe-area-inset-bottom);
+    height: 0;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 47.999rem) and (hover: none), (max-width: 47.999rem) and (pointer: coarse) {
+  @layer utilities {
+    .mobile-content-safe {
+      padding-bottom: var(--mobile-content-bottom-spacing);
+    }
+
+    .mobile-device-only {
+      display: block;
+    }
+
+    .mobile-nav-safe {
+      height: var(--mobile-nav-total-height);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
   }
 }

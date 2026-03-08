@@ -39,23 +39,35 @@ export const DINING_HALL_OPTIONS = [
   { value: "appalachian", label: "Appalachian Dining Hall" },
 ] as const
 
+export const DIETARY_PREFERENCE_OPTIONS = [
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "halal", label: "Halal" },
+  { value: "gluten_free", label: "Gluten-free" },
+] as const
+
 export type BuildingPreference = (typeof BUILDING_OPTIONS)[number]["value"]
 export type DiningHallPreference = (typeof DINING_HALL_OPTIONS)[number]["value"]
+export type DietaryPreference = (typeof DIETARY_PREFERENCE_OPTIONS)[number]["value"]
 
 export type PreferencesInput = {
   building?: unknown
   preferredDiningHall?: unknown
+  dietaryPreferences?: unknown
+  dietaryPreference?: unknown
 }
 
 export type NormalizedPreferences = {
   building?: BuildingPreference
   preferredDiningHall?: DiningHallPreference
+  dietaryPreferences?: DietaryPreference[]
 }
 
 const BUILDING_SET = new Set<string>(BUILDING_OPTIONS.map((option) => option.value))
 const DINING_HALL_SET = new Set<string>(DINING_HALL_OPTIONS.map((option) => option.value))
+const DIETARY_PREFERENCE_SET = new Set<string>(DIETARY_PREFERENCE_OPTIONS.map((option) => option.value))
 const BUILDING_LABELS = new Map<string, string>(BUILDING_OPTIONS.map((option) => [option.value, option.label]))
 const DINING_HALL_LABELS = new Map<string, string>(DINING_HALL_OPTIONS.map((option) => [option.value, option.label]))
+const DIETARY_PREFERENCE_LABELS = new Map<string, string>(DIETARY_PREFERENCE_OPTIONS.map((option) => [option.value, option.label]))
 
 export function normalizePreferences(input: PreferencesInput | undefined): NormalizedPreferences {
   const building =
@@ -68,7 +80,30 @@ export function normalizePreferences(input: PreferencesInput | undefined): Norma
       ? (input.preferredDiningHall as DiningHallPreference)
       : undefined
 
-  return { building, preferredDiningHall }
+  let dietaryPreferences: DietaryPreference[] = []
+
+  if (Array.isArray(input?.dietaryPreferences)) {
+    dietaryPreferences = Array.from(
+      new Set(
+        input.dietaryPreferences.filter(
+          (value): value is DietaryPreference =>
+            typeof value === "string" && DIETARY_PREFERENCE_SET.has(value)
+        )
+      )
+    )
+  } else if (
+    typeof input?.dietaryPreference === "string" &&
+    DIETARY_PREFERENCE_SET.has(input.dietaryPreference)
+  ) {
+    // Backward-compatible parse for old single-value payload/storage format.
+    dietaryPreferences = [input.dietaryPreference as DietaryPreference]
+  }
+
+  return {
+    building,
+    preferredDiningHall,
+    dietaryPreferences: dietaryPreferences.length > 0 ? dietaryPreferences : undefined,
+  }
 }
 
 export function getBuildingLabel(building: string | undefined): string | undefined {
@@ -85,4 +120,16 @@ export function getBuildingStub(building: string | undefined): string | undefine
 export function getDiningHallLabel(diningHall: string | undefined): string | undefined {
   if (!diningHall) return undefined
   return DINING_HALL_LABELS.get(diningHall)
+}
+
+export function getDietaryPreferenceLabel(dietaryPreference: string | undefined): string | undefined {
+  if (!dietaryPreference) return undefined
+  return DIETARY_PREFERENCE_LABELS.get(dietaryPreference)
+}
+
+export function getDietaryPreferenceLabels(dietaryPreferences: readonly string[] | undefined): string[] {
+  if (!dietaryPreferences || dietaryPreferences.length === 0) return []
+  return dietaryPreferences
+    .map((value) => DIETARY_PREFERENCE_LABELS.get(value))
+    .filter((label): label is string => typeof label === "string")
 }

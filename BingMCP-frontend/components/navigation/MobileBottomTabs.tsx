@@ -33,7 +33,7 @@ const tabs: Array<{
 export function MobileBottomTabs({ activeRoute }: MobileBottomTabsProps) {
   return (
     <nav
-      className="mobile-nav-safe fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
+      className="mobile-device-only mobile-nav-safe fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden"
       aria-label="Primary mobile navigation"
     >
       <div className="mx-auto flex h-[var(--mobile-nav-height)] w-full max-w-screen-md items-center gap-2 px-3">

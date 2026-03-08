@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
-import { Timer, Bus, MoonStar, Utensils, Paperclip, ArrowUp, User, Bot, Settings2, LayoutDashboard, Mic, MicOff } from "lucide-react"
+import { Bus, MoonStar, Dumbbell, CalendarDays, Paperclip, ArrowUp, User, Bot, Settings2, LayoutDashboard, Mic, MicOff, RotateCcw } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,9 +25,11 @@ import { MobileBottomTabs } from "@/components/navigation/MobileBottomTabs"
 import { useChromeSpeechInput } from "@/features/chat/voice/useChromeSpeechInput"
 import {
   BUILDING_OPTIONS,
+  DIETARY_PREFERENCE_OPTIONS,
   DINING_HALL_OPTIONS,
   normalizePreferences,
   type BuildingPreference,
+  type DietaryPreference,
   type DiningHallPreference,
 } from "@/lib/preferences"
 import type { StaticImageData } from "next/image"
@@ -81,24 +83,28 @@ const BAXTER_POSITIONS: Array<BaxterOverlayPosition & { id: string }> = [
 
 const SCENARIOS: Scenario[] = [
   {
-    icon: <Timer className="h-4 w-4" />,
-    title: "Optimize My Gap",
-    prompt: "I have 90 minutes before class at Bartle. Are there open washers in Digman, and is the East Gym empty enough for a quick workout? Which bus is fastest?",
+    icon: <Bus className="h-4 w-4" />,
+    title: "Morning Rush",
+    prompt: "What's the next bus I can catch? Is Hinman open for breakfast, and what are they serving this morning?",
+    tools: ["get_bus_locations", "get_dining_status", "get_dining_menu"],
   },
   {
-    icon: <Bus className="h-4 w-4" />,
-    title: "The Commuter Pivot",
-    prompt: "I'm on the Route 14 outbound. Based on the current bus location and East Gym capacity, should I go lift right now or just head straight to my dorm?",
+    icon: <Dumbbell className="h-4 w-4" />,
+    title: "Workout & Refuel",
+    prompt: "How packed is the East Gym right now? What's on the menu at CIW, and when's the next bus to get there?",
+    tools: ["get_gym_capacity", "get_dining_menu", "get_bus_locations"],
   },
   {
     icon: <MoonStar className="h-4 w-4" />,
     title: "Late Night Grind",
-    prompt: "It's 10:30 PM. Find me an empty study room in the UDC. Also, is there any dining hall or late-night food still open on campus?",
+    prompt: "It's 10:30 PM. Find me an open study room at Bartle and check if there are free washers in Digman.",
+    tools: ["get_available_library_rooms", "get_laundry_availability"],
   },
   {
-    icon: <Utensils className="h-4 w-4" />,
-    title: "Post-Workout Meal",
-    prompt: "I'm finishing up at the East Gym. Is Hinman Dining Hall open right now, and what's the next bus I can catch to get there?",
+    icon: <CalendarDays className="h-4 w-4" />,
+    title: "Weekend Planner",
+    prompt: "What events are happening on campus today? Is C4 open for lunch, and are there any free washers nearby?",
+    tools: ["get_bengaged_events", "get_dining_status", "get_laundry_availability"],
   },
 ]
 
@@ -126,14 +132,43 @@ const assistantMessageVariants = {
 }
 
 const MAX_FORCED_THINKING_MS = 12000
+const WEATHER_REFRESH_MS = 10 * 60 * 1000
+
+type WeatherPayload =
+  | {
+    status: "ok"
+    location: string
+    temperatureF: number
+    condition: string
+    observedAt: string
+    summary: string
+  }
+  | {
+    status: "unavailable"
+    reason: string
+  }
+
+function getWeatherEmoji(condition: string): string {
+  const normalized = condition.toLowerCase()
+  if (normalized.includes("thunder")) return "⛈️"
+  if (normalized.includes("snow")) return "❄️"
+  if (normalized.includes("rain")) return "🌧️"
+  if (normalized.includes("fog")) return "🌫️"
+  if (normalized.includes("clear")) return "☀️"
+  return "☁️"
+}
 
 type SettingsPopoverProps = {
   baxterEnabled: boolean
   onBaxterChange: (enabled: boolean) => void
+  expandedToolCallsEnabled: boolean
+  onExpandedToolCallsChange: (enabled: boolean) => void
   homeBuilding: BuildingPreference | ""
   onHomeBuildingChange: (building: BuildingPreference | "") => void
   preferredDiningHall: DiningHallPreference | ""
   onPreferredDiningHallChange: (hall: DiningHallPreference | "") => void
+  dietaryPreferences: DietaryPreference[]
+  onDietaryPreferencesChange: (dietaryPreferences: DietaryPreference[]) => void
   displayName: string
   onDisplayNameChange: (name: string) => void
 }
@@ -141,10 +176,14 @@ type SettingsPopoverProps = {
 function SettingsPopover({
   baxterEnabled,
   onBaxterChange,
+  expandedToolCallsEnabled,
+  onExpandedToolCallsChange,
   homeBuilding,
   onHomeBuildingChange,
   preferredDiningHall,
   onPreferredDiningHallChange,
+  dietaryPreferences,
+  onDietaryPreferencesChange,
   displayName,
   onDisplayNameChange,
 }: SettingsPopoverProps) {
@@ -205,6 +244,19 @@ function SettingsPopover({
           </div>
 
           <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Expanded Tool Calls</DropdownMenuLabel>
+            <Button
+              type="button"
+              size="sm"
+              variant={expandedToolCallsEnabled ? "default" : "outline"}
+              className="h-8 w-full justify-start rounded-md"
+              onClick={() => onExpandedToolCallsChange(!expandedToolCallsEnabled)}
+            >
+              {expandedToolCallsEnabled ? "On" : "Off"}
+            </Button>
+          </div>
+
+          <div className="space-y-2">
             <DropdownMenuLabel className="px-0 py-0">Laundry Room</DropdownMenuLabel>
             <select
               value={homeBuilding}
@@ -239,6 +291,43 @@ function SettingsPopover({
           </div>
 
           <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Dietary Preferences</DropdownMenuLabel>
+            <div className="grid grid-cols-1 gap-1.5">
+              {DIETARY_PREFERENCE_OPTIONS.map((option) => {
+                const isSelected = dietaryPreferences.includes(option.value)
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    size="sm"
+                    variant={isSelected ? "default" : "outline"}
+                    className="h-8 w-full justify-start rounded-md"
+                    onClick={() => {
+                      const next = isSelected
+                        ? dietaryPreferences.filter((value) => value !== option.value)
+                        : [...dietaryPreferences, option.value]
+                      onDietaryPreferencesChange(next)
+                    }}
+                  >
+                    {option.label}
+                  </Button>
+                )
+              })}
+            </div>
+            {dietaryPreferences.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 w-full justify-start rounded-md text-muted-foreground"
+                onClick={() => onDietaryPreferencesChange([])}
+              >
+                Clear dietary filters
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <DropdownMenuLabel className="px-0 py-0">Name</DropdownMenuLabel>
             <Input
               value={displayName}
@@ -260,9 +349,13 @@ export default function ChatWindow() {
   const [isTestModeEnabled, setIsTestModeEnabled] = useState(false)
   const [forcedThinkingExtraMs, setForcedThinkingExtraMs] = useState(0)
   const [baxterEnabled, setBaxterEnabled] = useState(false)
+  const [expandedToolCallsEnabled, setExpandedToolCallsEnabled] = useState(true)
   const [homeBuilding, setHomeBuilding] = useState<BuildingPreference | "">("")
   const [preferredDiningHall, setPreferredDiningHall] = useState<DiningHallPreference | "">("")
+  const [dietaryPreferences, setDietaryPreferences] = useState<DietaryPreference[]>([])
   const [displayName, setDisplayName] = useState("")
+  const [weather, setWeather] = useState<WeatherPayload | null>(null)
+  const [isWeatherLoading, setIsWeatherLoading] = useState(true)
   const [baxterOverlays, setBaxterOverlays] = useState<BaxterInstance[]>([])
   const baxterOverlayIdRef = useRef(0)
   const baxterLastToolNameRef = useRef<string | null>(null)
@@ -301,7 +394,7 @@ export default function ChatWindow() {
         if (!result || (result as Record<string, unknown>).status === "unavailable") continue
 
         if (!statTimestampsRef.current.has(toolName)) {
-          // eslint-disable-next-line react-hooks/purity -- Capture first-seen timestamp per tool for relative freshness display.
+          // Capture first-seen timestamp per tool for relative freshness display.
           statTimestampsRef.current.set(toolName, Date.now())
         }
 
@@ -340,6 +433,61 @@ export default function ChatWindow() {
     : isVoiceActive
       ? "Stop voice input"
       : "Start voice input"
+  const weatherPillLabel = isWeatherLoading
+    ? "Checking Binghamton weather..."
+    : weather?.status === "ok"
+      ? `Binghamton now: ${getWeatherEmoji(weather.condition)} ${Math.round(weather.temperatureF)}°F`
+      : "Binghamton weather unavailable"
+
+  const { heroGreeting, heroSubline } = useMemo(() => {
+    const hour = new Date().getHours()
+    const name = displayName.trim()
+
+    const condition = weather?.status === "ok" ? weather.condition.toLowerCase() : null
+    const tempF = weather?.status === "ok" ? Math.round(weather.temperatureF) : null
+
+    // Time-based greeting
+    let greeting: string
+    if (hour >= 5 && hour < 12) {
+      greeting = name ? `Good morning, ${name}!` : "Good morning!"
+    } else if (hour >= 12 && hour < 17) {
+      greeting = name ? `Hey ${name}, afternoon!` : "Good afternoon!"
+    } else if (hour >= 17 && hour < 21) {
+      greeting = name ? `Evening, ${name}!` : "Good evening!"
+    } else {
+      greeting = name ? `Still up, ${name}?` : "Burning the midnight oil?"
+    }
+
+    // Weather-aware subline
+    let subline = "What do you want to tackle on campus?"
+    if (condition && tempF !== null) {
+      if (condition.includes("snow")) {
+        subline = "Bundle up before you head out today."
+      } else if (condition.includes("thunder")) {
+        subline = "Might be a good day to stay in and knock stuff out."
+      } else if (condition.includes("rain")) {
+        subline = "Don't forget your umbrella."
+      } else if (condition.includes("fog")) {
+        subline = "Foggy out there, good day to stay in and be productive."
+      } else if (tempF <= 20) {
+        subline = `It's ${tempF}°F so plan ahead before braving the cold.`
+      } else if (tempF <= 35) {
+        subline = `Pretty cold out there at ${tempF}°F, what do you need today?`
+      } else if (tempF >= 80 && condition.includes("clear")) {
+        subline = `Gorgeous ${tempF}°F day, get your errands done and go enjoy the sun!`
+      } else if (hour >= 22 || hour < 5) {
+        subline = "What do you need at this hour?"
+      } else if (hour >= 5 && hour < 8) {
+        subline = "Early start, let's make it count."
+      }
+    } else if (hour >= 22 || hour < 5) {
+      subline = "What do you need at this hour?"
+    } else if (hour >= 5 && hour < 8) {
+      subline = "Early start, let's make it count."
+    }
+
+    return { heroGreeting: greeting, heroSubline: subline }
+  }, [displayName, weather])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -355,6 +503,43 @@ export default function ChatWindow() {
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch("/api/weather", { cache: "no-store" })
+        if (!response.ok) {
+          throw new Error(`Weather request failed (${response.status})`)
+        }
+
+        const payload = (await response.json()) as WeatherPayload
+        if (!active) return
+        setWeather(payload)
+      } catch (error) {
+        if (!active) return
+        setWeather({
+          status: "unavailable",
+          reason: error instanceof Error ? error.message : "Failed to load weather",
+        })
+      } finally {
+        if (active) {
+          setIsWeatherLoading(false)
+        }
+      }
+    }
+
+    void fetchWeather()
+    const timer = window.setInterval(() => {
+      void fetchWeather()
+    }, WEATHER_REFRESH_MS)
+
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
   }, [])
 
   const spawnBaxterOverlay = useCallback((toolName?: string | null) => {
@@ -423,6 +608,11 @@ export default function ChatWindow() {
           }
         }
 
+        const storedExpandedToolCalls = window.localStorage.getItem("expandedToolCalls")
+        if (storedExpandedToolCalls === "true" || storedExpandedToolCalls === "false") {
+          setExpandedToolCallsEnabled(storedExpandedToolCalls === "true")
+        }
+
         const storedName = window.localStorage.getItem("name")
         if (typeof storedName === "string") {
           setDisplayName(storedName.trim())
@@ -436,15 +626,30 @@ export default function ChatWindow() {
           }
         }
 
+        const storedDietaryPreferencesRaw = window.localStorage.getItem("dietaryPreferences")
+        let storedDietaryPreferences: unknown = undefined
+        if (storedDietaryPreferencesRaw) {
+          try {
+            storedDietaryPreferences = JSON.parse(storedDietaryPreferencesRaw)
+          } catch {
+            storedDietaryPreferences = undefined
+          }
+        }
+
         const normalized = normalizePreferences({
           building: window.localStorage.getItem("building") ?? undefined,
           preferredDiningHall: window.localStorage.getItem("preferredDiningHall") ?? undefined,
+          dietaryPreferences: storedDietaryPreferences,
+          dietaryPreference: window.localStorage.getItem("dietaryPreference") ?? undefined,
         })
         if (normalized.building) {
           setHomeBuilding(normalized.building)
         }
         if (normalized.preferredDiningHall) {
           setPreferredDiningHall(normalized.preferredDiningHall)
+        }
+        if (normalized.dietaryPreferences) {
+          setDietaryPreferences(normalized.dietaryPreferences)
         }
       } catch {
         // Ignore localStorage access errors.
@@ -474,6 +679,15 @@ export default function ChatWindow() {
     }
   }
 
+  const handleExpandedToolCallsChange = (enabled: boolean) => {
+    setExpandedToolCallsEnabled(enabled)
+    try {
+      window.localStorage.setItem("expandedToolCalls", String(enabled))
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
   const handleHomeBuildingChange = (building: BuildingPreference | "") => {
     setHomeBuilding(building)
     try {
@@ -495,6 +709,21 @@ export default function ChatWindow() {
       } else {
         window.localStorage.removeItem("preferredDiningHall")
       }
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
+  const handleDietaryPreferencesChange = (nextDietaryPreferences: DietaryPreference[]) => {
+    setDietaryPreferences(nextDietaryPreferences)
+    try {
+      if (nextDietaryPreferences.length > 0) {
+        window.localStorage.setItem("dietaryPreferences", JSON.stringify(nextDietaryPreferences))
+      } else {
+        window.localStorage.removeItem("dietaryPreferences")
+      }
+      // Remove legacy single-select key to avoid conflicting stale state.
+      window.localStorage.removeItem("dietaryPreference")
     } catch {
       // Ignore localStorage access errors.
     }
@@ -534,6 +763,7 @@ export default function ChatWindow() {
     const preferences = normalizePreferences({
       building: homeBuilding || undefined,
       preferredDiningHall: preferredDiningHall || undefined,
+      dietaryPreferences: dietaryPreferences.length > 0 ? dietaryPreferences : undefined,
     })
 
     baxterLastToolNameRef.current = null
@@ -592,16 +822,29 @@ export default function ChatWindow() {
       {/* Right: chat column */}
       <div className="relative flex min-w-0 flex-1 flex-col items-center overflow-hidden">
         <div
-          className="flex w-full items-center justify-end px-4 md:hidden"
+          className="flex w-full items-center justify-end gap-1 px-4 md:hidden"
           style={{ paddingTop: "max(env(safe-area-inset-top), 0.5rem)" }}
         >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+            aria-label="New chat"
+            onClick={() => window.location.reload()}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
           <SettingsPopover
             baxterEnabled={baxterEnabled}
             onBaxterChange={handleBaxterChange}
+            expandedToolCallsEnabled={expandedToolCallsEnabled}
+            onExpandedToolCallsChange={handleExpandedToolCallsChange}
             homeBuilding={homeBuilding}
             onHomeBuildingChange={handleHomeBuildingChange}
             preferredDiningHall={preferredDiningHall}
             onPreferredDiningHallChange={handlePreferredDiningHallChange}
+            dietaryPreferences={dietaryPreferences}
+            onDietaryPreferencesChange={handleDietaryPreferencesChange}
             displayName={displayName}
             onDisplayNameChange={handleDisplayNameChange}
           />
@@ -610,6 +853,15 @@ export default function ChatWindow() {
         {/* Floating settings button (desktop only) */}
         <div className="pointer-events-none absolute right-4 top-2 z-20 hidden md:block">
           <div className="pointer-events-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+              aria-label="New chat"
+              onClick={() => window.location.reload()}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
             <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground">
               <Link href="/dashboard" aria-label="Open dashboard">
                 <LayoutDashboard className="h-4 w-4" />
@@ -618,10 +870,14 @@ export default function ChatWindow() {
             <SettingsPopover
               baxterEnabled={baxterEnabled}
               onBaxterChange={handleBaxterChange}
+              expandedToolCallsEnabled={expandedToolCallsEnabled}
+              onExpandedToolCallsChange={handleExpandedToolCallsChange}
               homeBuilding={homeBuilding}
               onHomeBuildingChange={handleHomeBuildingChange}
               preferredDiningHall={preferredDiningHall}
               onPreferredDiningHallChange={handlePreferredDiningHallChange}
+              dietaryPreferences={dietaryPreferences}
+              onDietaryPreferencesChange={handleDietaryPreferencesChange}
               displayName={displayName}
               onDisplayNameChange={handleDisplayNameChange}
             />
@@ -648,7 +904,7 @@ export default function ChatWindow() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: EASE }}
                 >
-                  {heroName ? `Hello there, ${heroName}!` : "Hello there!"}
+                  {heroGreeting}
                 </motion.h1>
                 <motion.p
                   className="mt-1 text-lg text-muted-foreground sm:text-xl"
@@ -656,7 +912,15 @@ export default function ChatWindow() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, ease: EASE, delay: 0.06 }}
                 >
-                  What do you want to tackle on campus?
+                  {heroSubline}
+                </motion.p>
+                <motion.p
+                  className="mt-2 text-sm text-muted-foreground"
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: EASE, delay: 0.12 }}
+                >
+                  {weatherPillLabel}
                 </motion.p>
               </div>
               <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -754,6 +1018,7 @@ export default function ChatWindow() {
                                 result={result}
                                 isVisualUnique={isFirstOfType}
                                 forcedThinkingExtraMs={forcedThinkingExtraMs}
+                                collapseOnComplete={!expandedToolCallsEnabled}
                               />
                             )
                           }

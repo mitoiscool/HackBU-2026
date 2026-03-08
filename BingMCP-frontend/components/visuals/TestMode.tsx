@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState, type ComponentType } from "react"
-import { Bus, Dumbbell, LibraryBig, Shirt, Sparkles, UtensilsCrossed, type LucideIcon } from "lucide-react"
+import { Bus, CalendarDays, Dumbbell, LibraryBig, Shirt, Sparkles, UtensilsCrossed, type LucideIcon } from "lucide-react"
 
-type VisualId = "bus" | "dining" | "gym" | "laundry" | "library" | "fallback"
+type VisualId = "bus" | "dining" | "gym" | "laundry" | "library" | "fallback" | "events"
 
 type VisualModule = {
   default?: unknown
@@ -88,6 +88,17 @@ const VISUALS: VisualSpec[] = [
     palette: ["#d946ef", "#22d3ee", "#6366f1"],
     exportName: "FallbackVisual",
     load: () => import("./shared/FallbackVisual") as Promise<VisualModule>,
+  },
+  {
+    id: "events",
+    label: "B-Engaged Events",
+    icon: CalendarDays,
+    tool: "get_bengaged_events",
+    motionProfile: "Staggered calendar grid with sweep bar",
+    description: "Animated day-grid scanning for events — no 3D, no SVG.",
+    palette: ["#10b981", "#ffffff", "#0f172a"],
+    exportName: "EventsVisual",
+    load: () => import("./events/EventsVisual") as Promise<VisualModule>,
   },
 ]
 

@@ -286,6 +286,82 @@ function BigLibraryCard({ data }: { data: Record<string, unknown> }) {
     )
 }
 
+// ─── Events ──────────────────────────────────────────────────────────────────
+
+function BigEventsCard({ data }: { data: Record<string, unknown> }) {
+    const events = (data.events as Array<Record<string, unknown>>) ?? []
+    const totalEvents = Number(data.total_events ?? 0)
+    const returnedCount = Number(data.returned_count ?? events.length)
+    const hasMore = Boolean(data.has_more)
+    const stale = Boolean(data.stale)
+
+    if (events.length === 0) {
+        return (
+            <div className="text-center py-4">
+                <CalendarDays className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">No events found</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-2">
+            {stale && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Cached data
+                </div>
+            )}
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted/40 rounded-xl px-3 py-2">
+                <CalendarDays className="h-3 w-3 shrink-0" />
+                <span>
+                    <span className="font-bold text-foreground">{returnedCount}</span> of{" "}
+                    <span className="font-bold text-foreground">{totalEvents}</span> events
+                </span>
+            </div>
+            <div className="space-y-2">
+                {events.slice(0, 4).map((event, i) => (
+                    <motion.div
+                        key={String(event.event_id ?? i)}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.07 }}
+                        className="rounded-xl bg-muted/40 border border-border px-3 py-2.5 space-y-1"
+                    >
+                        <p className="text-xs font-semibold text-foreground leading-snug truncate">
+                            {String(event.name ?? "Unnamed Event")}
+                        </p>
+                        {event.dates_text && (
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <Clock className="h-2.5 w-2.5 shrink-0" />
+                                <span className="truncate">{String(event.dates_text)}</span>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {event.category && (
+                                <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                    {String(event.category)}
+                                </span>
+                            )}
+                            {event.location && (
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
+                                    <MapPin className="h-2.5 w-2.5 shrink-0" />
+                                    <span className="truncate">{String(event.location)}</span>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+            {hasMore && (
+                <p className="text-[10px] text-muted-foreground text-center py-1">
+                    +{totalEvents - returnedCount} more events
+                </p>
+            )}
+        </div>
+    )
+}
+
 // ─── Fallback ─────────────────────────────────────────────────────────────────
 
 function BigFallbackCard({ data }: { data: Record<string, unknown> }) {
@@ -316,6 +392,8 @@ function getCardMeta(toolName: string, result?: Record<string, unknown>): { icon
         }
         case "get_available_library_rooms":
             return { icon: <BookOpen className="h-4 w-4" />, label: "Study Rooms" }
+        case "get_bengaged_events":
+            return { icon: <CalendarDays className="h-4 w-4" />, label: "Events" }
         default:
             return { icon: <Activity className="h-4 w-4" />, label: "Result" }
     }
@@ -338,6 +416,7 @@ function BigStatCard({ entry }: { entry: StatEntry }) {
             case "get_dining_status": return <BigDiningStatusCard data={result} />
             case "get_dining_menu": return <BigDiningMenuCard data={result} />
             case "get_available_library_rooms": return <BigLibraryCard data={result} />
+            case "get_bengaged_events": return <BigEventsCard data={result} />
             default: return <BigFallbackCard data={result} />
         }
     }

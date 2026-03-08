@@ -10,6 +10,7 @@ export interface Scenario {
     icon: React.ReactNode
     title: string
     prompt: string
+    tools: string[]
 }
 
 interface ScenarioCardProps {
@@ -52,6 +53,7 @@ export function ScenarioCard({ scenario, setInput, inputRef }: ScenarioCardProps
             <p className="text-sm text-muted-foreground leading-relaxed mb-4 font-normal">
                 &ldquo;{scenario.prompt}&rdquo;
             </p>
+
         </MotionButton>
     )
 }

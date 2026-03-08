@@ -4,4 +4,5 @@ export interface ToolCallCardProps {
     result?: unknown
     isVisualUnique?: boolean
     forcedThinkingExtraMs?: number
+    collapseOnComplete?: boolean
 }
