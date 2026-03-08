@@ -9,7 +9,7 @@ import { ToolResultRenderer } from "./tool-result-renderer"
 import { ToolLoadingRenderer } from "./tool-loading-renderer"
 import { ToolCallCardProps } from "./types"
 
-export function ToolCallCard({ toolName, state, result, isVisualUnique = true }: ToolCallCardProps) {
+export function ToolCallCard({ toolName, state, result, isVisualUnique = true, forcedThinkingExtraMs = 0 }: ToolCallCardProps) {
     const [expanded, setExpanded] = useState(true)
     const [showResult, setShowResult] = useState(false)
     const [startTime] = useState(() => Date.now())
@@ -21,11 +21,11 @@ export function ToolCallCard({ toolName, state, result, isVisualUnique = true }:
             const elapsed = Date.now() - startTime
             // Ensure the user sees the beautiful animation for at least 2.5s total, 
             // but add a guaranteed 1s minimum delay even if it took 5s, just letting it finish a cycle.
-            const delay = Math.max(2500 - elapsed, 1200)
+            const delay = Math.max(2500 - elapsed, 1200) + Math.max(0, forcedThinkingExtraMs)
             const timer = setTimeout(() => setShowResult(true), delay)
             return () => clearTimeout(timer)
         }
-    }, [isComplete, startTime])
+    }, [forcedThinkingExtraMs, isComplete, startTime])
 
     return (
         <motion.div

@@ -101,11 +101,34 @@ function resolveComponent(module: VisualModule, exportName: string): ComponentTy
   return null
 }
 
-export function TestMode() {
+type TestModeProps = {
+  forcedThinkingExtraMs?: number
+  onForcedThinkingExtraMsChange?: (ms: number) => void
+}
+
+const MAX_FORCED_THINKING_MS = 12000
+
+function clampForcedThinkingMs(value: number) {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(MAX_FORCED_THINKING_MS, Math.max(0, Math.round(value)))
+}
+
+export function TestMode({ forcedThinkingExtraMs, onForcedThinkingExtraMsChange }: TestModeProps = {}) {
   const [activeVisualId, setActiveVisualId] = useState<VisualId>("bus")
   const [resolvedVisual, setResolvedVisual] = useState<{ id: VisualId; component: ComponentType | null } | null>(null)
+  const [localForcedThinkingExtraMs, setLocalForcedThinkingExtraMs] = useState(0)
 
   const active = VISUALS_BY_ID[activeVisualId]
+  const effectiveForcedThinkingExtraMs = clampForcedThinkingMs(forcedThinkingExtraMs ?? localForcedThinkingExtraMs)
+
+  const handleForcedThinkingExtraMsChange = (nextValue: number) => {
+    const clamped = clampForcedThinkingMs(nextValue)
+    if (onForcedThinkingExtraMsChange) {
+      onForcedThinkingExtraMsChange(clamped)
+      return
+    }
+    setLocalForcedThinkingExtraMs(clamped)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -135,6 +158,32 @@ export function TestMode() {
         <div>
           <h2 className="text-base font-semibold text-foreground">Visual Test Mode</h2>
           <p className="text-sm text-muted-foreground">Switch tabs to render each real loading visual module.</p>
+        </div>
+        <div className="min-w-[260px] rounded-lg border border-border bg-background px-3 py-2">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Forced thinking extra time</p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={MAX_FORCED_THINKING_MS}
+              step={250}
+              value={effectiveForcedThinkingExtraMs}
+              onChange={(event) => handleForcedThinkingExtraMsChange(Number(event.target.value))}
+              aria-label="Forced thinking extra time"
+              className="h-2 w-full cursor-pointer accent-primary"
+            />
+            <input
+              type="number"
+              min={0}
+              max={MAX_FORCED_THINKING_MS}
+              step={250}
+              value={effectiveForcedThinkingExtraMs}
+              onChange={(event) => handleForcedThinkingExtraMsChange(Number(event.target.value))}
+              aria-label="Forced thinking extra time milliseconds"
+              className="h-8 w-20 rounded-md border border-input bg-transparent px-2 text-right text-xs"
+            />
+            <span className="text-xs text-muted-foreground">ms</span>
+          </div>
         </div>
       </div>
 

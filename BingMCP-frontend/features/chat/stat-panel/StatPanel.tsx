@@ -298,7 +298,7 @@ function BigFallbackCard({ data }: { data: Record<string, unknown> }) {
 
 // ─── Card Metadata ─────────────────────────────────────────────────────────────
 
-function getCardMeta(toolName: string): { icon: React.ReactNode; label: string } {
+function getCardMeta(toolName: string, result?: Record<string, unknown>): { icon: React.ReactNode; label: string } {
     switch (toolName) {
         case "get_bus_locations":
             return { icon: <Bus className="h-4 w-4" />, label: "Bus Routes" }
@@ -306,10 +306,14 @@ function getCardMeta(toolName: string): { icon: React.ReactNode; label: string }
             return { icon: <Dumbbell className="h-4 w-4" />, label: "East Gym" }
         case "get_laundry_availability":
             return { icon: <WashingMachine className="h-4 w-4" />, label: "Laundry" }
-        case "get_dining_status":
-            return { icon: <UtensilsCrossed className="h-4 w-4" />, label: "Dining Hall" }
-        case "get_dining_menu":
-            return { icon: <UtensilsCrossed className="h-4 w-4" />, label: "Dining Menu" }
+        case "get_dining_status": {
+            const hallName = result?.hall ? String(result.hall) : "Dining Hall"
+            return { icon: <UtensilsCrossed className="h-4 w-4" />, label: hallName }
+        }
+        case "get_dining_menu": {
+            const hallName = result?.hall ? String(result.hall) : "Dining Menu"
+            return { icon: <UtensilsCrossed className="h-4 w-4" />, label: hallName }
+        }
         case "get_available_library_rooms":
             return { icon: <BookOpen className="h-4 w-4" />, label: "Study Rooms" }
         default:
@@ -321,7 +325,7 @@ function getCardMeta(toolName: string): { icon: React.ReactNode; label: string }
 
 function BigStatCard({ entry }: { entry: StatEntry }) {
     const { toolName, result, timestamp } = entry
-    const meta = getCardMeta(toolName)
+    const meta = getCardMeta(toolName, result)
 
     const elapsed = Math.round((Date.now() - timestamp) / 1000)
     const timeLabel = elapsed < 5 ? "just now" : elapsed < 60 ? `${elapsed}s ago` : `${Math.round(elapsed / 60)}m ago`

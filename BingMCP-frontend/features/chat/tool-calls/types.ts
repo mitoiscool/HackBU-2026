@@ -3,4 +3,5 @@ export interface ToolCallCardProps {
     state: "call" | "partial-call" | "result"
     result?: unknown
     isVisualUnique?: boolean
+    forcedThinkingExtraMs?: number
 }

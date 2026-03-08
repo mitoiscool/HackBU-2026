@@ -19,6 +19,7 @@ import { MarkdownMessage } from "@/components/ui/markdown-message"
 import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
 import { StatPanel, type StatEntry } from "@/features/chat/stat-panel/StatPanel"
+import { BaxterOverlay } from "@/components/baxter/BaxterOverlay"
 import {
   BUILDING_OPTIONS,
   DINING_HALL_OPTIONS,
@@ -26,6 +27,36 @@ import {
   type BuildingPreference,
   type DiningHallPreference,
 } from "@/lib/preferences"
+import type { StaticImageData } from "next/image"
+import baxterdriving from "@/lib/images/baxter/baxterdriving.png"
+import baxtersprinting from "@/lib/images/baxter/baxtersprinting.png"
+import baxterlunch from "@/lib/images/baxter/baxterlunch.png"
+import baxterdunkin from "@/lib/images/baxter/baxterdunkin.png"
+import baxtermysterymeat from "@/lib/images/baxter/baxtermysterymeat.png"
+import baxtergym from "@/lib/images/baxter/baxtergym.png"
+import baxterlaundry from "@/lib/images/baxter/baxterlaundry.png"
+import baxterreading from "@/lib/images/baxter/baxterreading.png"
+import baxterlaptop from "@/lib/images/baxter/baxterlaptop.png"
+import baxterthinking from "@/lib/images/baxter/baxterthinking.png"
+import baxterjumping from "@/lib/images/baxter/baxterjumping.png"
+import baxterfootball from "@/lib/images/baxter/baxterfootball.png"
+import baxterice from "@/lib/images/baxter/baxterice.png"
+
+const BAXTER_TOOL_IMAGES: Record<string, StaticImageData[]> = {
+  get_bus_locations: [baxterdriving, baxtersprinting],
+  get_dining_status: [baxterlunch, baxterdunkin],
+  get_dining_menu: [baxtermysterymeat, baxterdunkin, baxterlunch],
+  get_gym_capacity: [baxtergym],
+  get_laundry_availability: [baxterlaundry],
+  get_available_library_rooms: [baxterreading, baxterlaptop],
+}
+
+const BAXTER_FALLBACK_IMAGES: StaticImageData[] = [baxterthinking, baxterjumping, baxterfootball, baxterice]
+
+function pickBaxterImage(toolName: string): StaticImageData {
+  const pool = BAXTER_TOOL_IMAGES[toolName] ?? BAXTER_FALLBACK_IMAGES
+  return pool[Math.floor(Math.random() * pool.length)]
+}
 
 const SCENARIOS: Scenario[] = [
   {
@@ -72,6 +103,8 @@ const assistantMessageVariants = {
   hidden: { opacity: 0, x: -20, y: 6 },
   visible: { opacity: 1, x: 0, y: 0, transition: { duration: 0.38, ease: EASE } },
 }
+
+const MAX_FORCED_THINKING_MS = 12000
 
 type SettingsPopoverProps = {
   baxterEnabled: boolean
@@ -204,10 +237,16 @@ export default function ChatWindow() {
   const { messages, status, sendMessage, error } = useChat()
   const [input, setInput] = useState("")
   const [isTestModeEnabled, setIsTestModeEnabled] = useState(false)
+  const [forcedThinkingExtraMs, setForcedThinkingExtraMs] = useState(0)
   const [baxterEnabled, setBaxterEnabled] = useState(false)
   const [homeBuilding, setHomeBuilding] = useState<BuildingPreference | "">("")
   const [preferredDiningHall, setPreferredDiningHall] = useState<DiningHallPreference | "">("")
   const [displayName, setDisplayName] = useState("")
+  const [baxterImageSrc, setBaxterImageSrc] = useState<StaticImageData | null>(null)
+  const [baxterOverlayVisible, setBaxterOverlayVisible] = useState(false)
+  const baxterShownRef = useRef(false)
+  const baxterDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const heroName = displayName.trim()
@@ -274,6 +313,45 @@ export default function ChatWindow() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
+  // Reset Baxter overlay flag when a new request starts
+  useEffect(() => {
+    if (status === "submitted") {
+      baxterShownRef.current = false
+      if (baxterDismissTimer.current) {
+        clearTimeout(baxterDismissTimer.current)
+        baxterDismissTimer.current = null
+      }
+      setBaxterOverlayVisible(false)
+    }
+  }, [status])
+
+  // Show Baxter overlay on first tool call of each request
+  useEffect(() => {
+    if (!baxterEnabled) return
+    if (status !== "streaming") return
+    if (baxterShownRef.current) return
+
+    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant")
+    if (!lastAssistantMsg) return
+
+    const firstToolPart = (lastAssistantMsg.parts ?? []).find(
+      (p) => p.type.startsWith("tool-") || p.type === "tool-invocation" || p.type === "dynamic-tool"
+    )
+    if (!firstToolPart) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = firstToolPart as any
+    const toolName: string = p.toolName || p.toolInvocation?.toolName || p.name || "unknown"
+
+    baxterShownRef.current = true
+    setBaxterImageSrc(pickBaxterImage(toolName))
+    setBaxterOverlayVisible(true)
+
+    baxterDismissTimer.current = setTimeout(() => {
+      setBaxterOverlayVisible(false)
+    }, 2500)
+  }, [messages, baxterEnabled, status])
+
   useEffect(() => {
     let active = true
 
@@ -289,6 +367,14 @@ export default function ChatWindow() {
         const storedName = window.localStorage.getItem("name")
         if (typeof storedName === "string") {
           setDisplayName(storedName.trim())
+        }
+
+        const storedForcedThinkingExtraMs = window.localStorage.getItem("forcedThinkingExtraMs")
+        if (storedForcedThinkingExtraMs) {
+          const parsed = Number(storedForcedThinkingExtraMs)
+          if (Number.isFinite(parsed) && parsed >= 0) {
+            setForcedThinkingExtraMs(Math.min(MAX_FORCED_THINKING_MS, Math.round(parsed)))
+          }
         }
 
         const normalized = normalizePreferences({
@@ -360,6 +446,20 @@ export default function ChatWindow() {
     }
   }
 
+  const handleForcedThinkingExtraMsChange = (nextValue: number) => {
+    const safeValue = Math.min(MAX_FORCED_THINKING_MS, Math.max(0, Math.round(nextValue)))
+    setForcedThinkingExtraMs(safeValue)
+    try {
+      if (safeValue > 0) {
+        window.localStorage.setItem("forcedThinkingExtraMs", String(safeValue))
+      } else {
+        window.localStorage.removeItem("forcedThinkingExtraMs")
+      }
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
   const submit = () => {
     const text = input.trim()
     if (!text || isStreaming) return
@@ -379,7 +479,20 @@ export default function ChatWindow() {
 
   return (
     <div className="flex h-svh w-full overflow-hidden">
-      {isTestModeEnabled && <TestMode />}
+      {isTestModeEnabled && (
+        <TestMode
+          forcedThinkingExtraMs={forcedThinkingExtraMs}
+          onForcedThinkingExtraMsChange={handleForcedThinkingExtraMsChange}
+        />
+      )}
+
+      {baxterEnabled && (
+        <BaxterOverlay
+          src={baxterImageSrc}
+          visible={baxterOverlayVisible}
+          onDismiss={() => setBaxterOverlayVisible(false)}
+        />
+      )}
 
       {/* Left stat panel */}
       <AnimatePresence>
@@ -542,6 +655,7 @@ export default function ChatWindow() {
                                 state={actualState}
                                 result={result}
                                 isVisualUnique={isFirstOfType}
+                                forcedThinkingExtraMs={forcedThinkingExtraMs}
                               />
                             )
                           }
