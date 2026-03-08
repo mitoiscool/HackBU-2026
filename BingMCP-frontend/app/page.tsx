@@ -4,8 +4,15 @@ import { useEffect, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
-import { Timer, Bus, MoonStar, Wallet, Paperclip, ArrowUp, User, Bot, Sun, Moon } from "lucide-react"
+import { Timer, Bus, MoonStar, Wallet, Paperclip, ArrowUp, User, Bot, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScenarioCard, type Scenario } from "@/components/ui/scenario-card"
 import { MarkdownMessage } from "@/components/ui/markdown-message"
@@ -56,53 +63,86 @@ const messageVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: EASE } },
 }
 
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+type SettingsPopoverProps = {
+  baxterEnabled: boolean
+  onBaxterChange: (enabled: boolean) => void
+  displayName: string
+  onDisplayNameChange: (name: string) => void
+}
 
-  useEffect(() => {
-    let active = true
-    Promise.resolve().then(() => {
-      if (active) setMounted(true)
-    })
-    return () => {
-      active = false
-    }
-  }, [])
-  if (!mounted) return <div className="h-9 w-9" />
+function SettingsPopover({
+  baxterEnabled,
+  onBaxterChange,
+  displayName,
+  onDisplayNameChange,
+}: SettingsPopoverProps) {
+  const { theme, setTheme } = useTheme()
+  const activeTheme = theme === "light" ? "light" : "dark"
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      aria-label="Toggle theme"
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {theme === "dark" ? (
-          <motion.span
-            key="sun"
-            initial={{ opacity: 0, rotate: -30, scale: 0.8 }}
-            animate={{ opacity: 1, rotate: 0, scale: 1 }}
-            exit={{ opacity: 0, rotate: 30, scale: 0.8 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <Sun className="h-4 w-4" />
-          </motion.span>
-        ) : (
-          <motion.span
-            key="moon"
-            initial={{ opacity: 0, rotate: 30, scale: 0.8 }}
-            animate={{ opacity: 1, rotate: 0, scale: 1 }}
-            exit={{ opacity: 0, rotate: -30, scale: 0.8 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <Moon className="h-4 w-4" />
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+          aria-label="Open settings"
+        >
+          <Settings2 className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 p-3">
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Theme</DropdownMenuLabel>
+            <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTheme === "dark" ? "default" : "ghost"}
+                className="h-7 rounded-md"
+                onClick={() => setTheme("dark")}
+              >
+                Dark
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={activeTheme === "light" ? "default" : "ghost"}
+                className="h-7 rounded-md"
+                onClick={() => setTheme("light")}
+              >
+                Light
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Baxter Mode</DropdownMenuLabel>
+            <Button
+              type="button"
+              size="sm"
+              variant={baxterEnabled ? "default" : "outline"}
+              className="h-8 w-full justify-start rounded-md"
+              onClick={() => onBaxterChange(!baxterEnabled)}
+            >
+              {baxterEnabled ? "On" : "Off"}
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Name</DropdownMenuLabel>
+            <Input
+              value={displayName}
+              onChange={(event) => onDisplayNameChange(event.target.value)}
+              onKeyDown={(event) => event.stopPropagation()}
+              className="h-8"
+              placeholder="Enter your name"
+            />
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -110,8 +150,11 @@ export default function ChatWindow() {
   const { messages, status, sendMessage, error } = useChat()
   const [input, setInput] = useState("")
   const [isTestModeEnabled, setIsTestModeEnabled] = useState(false)
+  const [baxterEnabled, setBaxterEnabled] = useState(false)
+  const [displayName, setDisplayName] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const heroName = displayName.trim()
 
   const isStreaming = status === "streaming" || status === "submitted"
 
@@ -131,6 +174,55 @@ export default function ChatWindow() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
+  useEffect(() => {
+    let active = true
+
+    Promise.resolve().then(() => {
+      if (!active) return
+
+      try {
+        const storedBaxter = window.localStorage.getItem("baxter")
+        if (storedBaxter === "true" || storedBaxter === "false") {
+          setBaxterEnabled(storedBaxter === "true")
+        }
+
+        const storedName = window.localStorage.getItem("name")
+        if (typeof storedName === "string") {
+          setDisplayName(storedName.trim())
+        }
+      } catch {
+        // Ignore localStorage access errors.
+      }
+    })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const handleBaxterChange = (enabled: boolean) => {
+    setBaxterEnabled(enabled)
+    try {
+      window.localStorage.setItem("baxter", String(enabled))
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
+  const handleDisplayNameChange = (name: string) => {
+    setDisplayName(name)
+    const trimmedName = name.trim()
+    try {
+      if (trimmedName.length > 0) {
+        window.localStorage.setItem("name", trimmedName)
+      } else {
+        window.localStorage.removeItem("name")
+      }
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
   const submit = () => {
     const text = input.trim()
     if (!text || isStreaming) return
@@ -144,7 +236,12 @@ export default function ChatWindow() {
 
       {/* Top bar */}
       <div className="w-full flex justify-end px-4 py-2 shrink-0">
-        <ThemeToggle />
+        <SettingsPopover
+          baxterEnabled={baxterEnabled}
+          onBaxterChange={handleBaxterChange}
+          displayName={displayName}
+          onDisplayNameChange={handleDisplayNameChange}
+        />
       </div>
 
       <div className="flex flex-1 w-full max-w-screen-md flex-col overflow-hidden">
@@ -167,7 +264,7 @@ export default function ChatWindow() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, ease: EASE }}
                 >
-                  Hello there!
+                  {heroName ? `Hello there, ${heroName}!` : "Hello there!"}
                 </motion.h1>
                 <motion.p
                   className="text-xl text-muted-foreground mt-1"
