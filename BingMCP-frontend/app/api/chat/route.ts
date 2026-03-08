@@ -1,6 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { streamText, convertToModelMessages, stepCountIs } from "ai"
-import { createMCPClient } from "@ai-sdk/mcp"
 import {
     getBuildingLabel,
     getDiningHallLabel,
@@ -8,14 +7,13 @@ import {
     type NormalizedPreferences,
     type PreferencesInput,
 } from "@/lib/preferences"
+import { MCP_SERVER_URL, closeMcpClient, connectMcpClient, getMcpTools } from "@/lib/server/mcp-client"
 
 const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 })
 
 const model = google(process.env.GEMINI_MODEL ?? "gemini-3-flash-preview")
-
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL ?? "http://localhost:8000/sse"
 
 export const maxDuration = 60
 
@@ -91,10 +89,7 @@ export async function POST(req: Request) {
     let mcpClient
     try {
         logMCP(`Connecting to MCP server at ${MCP_SERVER_URL} ...`)
-        mcpClient = await createMCPClient({
-            transport: { type: "sse", url: MCP_SERVER_URL },
-            name: "baxter-frontend",
-        })
+        mcpClient = await connectMcpClient("baxter-frontend")
         logMCP(`MCP connected in ${Date.now() - connStart}ms`)
     } catch (err) {
         logMCP(`MCP connection FAILED after ${Date.now() - connStart}ms — falling back to no-tools mode`, String(err))
@@ -107,7 +102,7 @@ export async function POST(req: Request) {
     }
 
     const toolsStart = Date.now()
-    const tools = await mcpClient.tools()
+    const tools = await getMcpTools(mcpClient)
     const toolNames = Object.keys(tools)
     logMCP(`Tools fetched in ${Date.now() - toolsStart}ms — available: [${toolNames.join(", ")}]`)
 
@@ -143,7 +138,7 @@ export async function POST(req: Request) {
             logMCP("streamText error", err)
         },
         onFinish: async () => {
-            await mcpClient.close().catch(() => { })
+            await closeMcpClient(mcpClient)
             logMCP("MCP client closed")
         },
     })

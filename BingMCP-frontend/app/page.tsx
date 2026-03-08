@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
-import { Timer, Bus, MoonStar, Utensils, Paperclip, ArrowUp, User, Bot, Settings2 } from "lucide-react"
+import { Timer, Bus, MoonStar, Utensils, Paperclip, ArrowUp, User, Bot, Settings2, LayoutDashboard } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -518,7 +519,12 @@ export default function ChatWindow() {
 
       {/* Floating settings button (does not reserve header space) */}
       <div className="pointer-events-none absolute right-4 top-2 z-20">
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex items-center gap-1">
+        <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground">
+          <Link href="/dashboard" aria-label="Open dashboard">
+            <LayoutDashboard className="h-4 w-4" />
+          </Link>
+        </Button>
         <SettingsPopover
           baxterEnabled={baxterEnabled}
           onBaxterChange={handleBaxterChange}
