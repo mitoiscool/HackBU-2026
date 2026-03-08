@@ -514,10 +514,11 @@ export default function ChatWindow() {
       </AnimatePresence>
 
       {/* Right: chat column */}
-      <div className="flex flex-1 flex-col overflow-hidden items-center min-w-0">
+      <div className="relative flex flex-1 flex-col overflow-hidden items-center min-w-0">
 
-      {/* Top bar */}
-      <div className="w-full flex justify-end px-4 py-2 shrink-0">
+      {/* Floating settings button (does not reserve header space) */}
+      <div className="pointer-events-none absolute right-4 top-2 z-20">
+        <div className="pointer-events-auto">
         <SettingsPopover
           baxterEnabled={baxterEnabled}
           onBaxterChange={handleBaxterChange}
@@ -528,6 +529,7 @@ export default function ChatWindow() {
           displayName={displayName}
           onDisplayNameChange={handleDisplayNameChange}
         />
+        </div>
       </div>
 
       <div className="flex flex-1 w-full max-w-screen-md flex-col overflow-hidden">
