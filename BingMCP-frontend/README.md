@@ -4,6 +4,7 @@ Next.js frontend for Baxter, a Binghamton campus assistant with:
 
 - Chat UI that can call MCP tools through the AI SDK
 - Live dashboard for bus, gym, laundry, and dining status/menu
+- Live Binghamton weather snapshot shown in the chat empty-state header
 - Baxter Mode overlays that spawn persistent Baxter mascots in different screen positions
 - User preferences and settings saved in local storage (Baxter Mode, Expanded Tool Calls, laundry room, preferred dining hall, dietary preference)
 
@@ -26,6 +27,7 @@ UI:
 API:
 
 - `POST /api/chat` - Streams model responses and MCP tool calls
+- `GET /api/weather` - Current Binghamton weather snapshot for the chat hero
 - `GET /api/dashboard` - Aggregated tool snapshot (gym, bus, laundry, dining status)
 - `GET /api/dashboard/menu?hall=<hall>` - Dining menu for one hall
 
@@ -52,6 +54,19 @@ Preference storage keys:
 The chat client sends preferences with each message in `POST /api/chat` request body.
 The API injects them into Baxter's system context. When dietary preferences are set,
 Baxter is instructed to prioritize/filter dining menu suggestions for those diets.
+Each chat request also injects the latest Binghamton weather snapshot into the
+system prompt so Baxter can factor it into outdoor, commute, and timing advice.
+
+## Weather Snapshot
+
+- The chat empty state shows plain-text current weather under
+  `What do you want to tackle on campus?`
+- Display format: `Binghamton now: <emoji> <rounded-temp>°F`
+- Weather data comes from Open-Meteo for Binghamton (`42.0987, -75.9180`)
+- The frontend fetches weather through `GET /api/weather`
+- Server-side weather fetches are cached in memory for 10 minutes in
+  `lib/server/weather.ts`
+- If the weather request fails, the UI falls back to `Binghamton weather unavailable`
 
 ## Environment Variables
 
@@ -103,6 +118,8 @@ Then open [http://localhost:3000](http://localhost:3000).
 - MCP client setup lives in `lib/server/mcp-client.ts`
 - Chat and dashboard endpoints create short-lived MCP client connections per request
 - Tool results are normalized server-side before being returned to UI components
+- Weather is not provided by the MCP backend; the frontend serves it from
+  Open-Meteo through `app/api/weather/route.ts`
 - The Python backend must be started in HTTP mode for primary compatibility:
   `python ../BingMCP/server.py --transport http`
 

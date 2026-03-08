@@ -2,6 +2,10 @@
 
 BingMCP is a FastMCP server that exposes live Binghamton University data as tools for LLM clients.
 
+Note: the frontend's current-weather line is not an MCP tool. `BingMCP-frontend`
+fetches Binghamton weather directly from Open-Meteo through its own
+`GET /api/weather` endpoint and injects that snapshot into Baxter's system prompt.
+
 ## What It Provides
 
 The server loads tools dynamically from `tools/*/tool.py` and currently exposes:
