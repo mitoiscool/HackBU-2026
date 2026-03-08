@@ -47,7 +47,7 @@ const SCENARIOS: Scenario[] = [
 ]
 
 // Easing curve for premium snappy feel
-const EASE = [0.16, 1, 0.3, 1]
+const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 const cardVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -299,87 +299,97 @@ export default function ChatWindow() {
         {/* Chat thread */}
         {messages.length > 0 && (
           <div className="flex flex-1 flex-col gap-6 px-4 md:px-8 pt-8 pb-4 overflow-y-auto">
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                variants={messageVariants}
-                initial="hidden"
-                animate="visible"
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary mt-0.5">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                )}
-                <div className={`max-w-[80%] ${msg.role === "user"
-                  ? "rounded-2xl px-4 py-2.5 text-sm leading-relaxed bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
-                  : "text-sm leading-relaxed"
-                  }`}>
-                  {msg.role === "user" ? (
-                    msg.parts?.filter((p): p is { type: "text"; text: string } => p.type === "text").map((p) => p.text).join("") ?? ""
-                  ) : (
-                    <div className="space-y-1">
-                      {msg.parts?.map((part, pi) => {
-                        if (part.type === "text" && part.text.length > 0) {
-                          return (
-                            <div key={pi} className="rounded-2xl rounded-bl-sm bg-muted text-foreground px-4 py-2.5">
-                              <MarkdownMessage content={part.text} />
-                            </div>
-                          )
-                        }
-                        if (part.type.startsWith("tool-") || part.type === "tool-invocation" || part.type === "dynamic-tool") {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const p = part as any
-                          const ti = p.toolInvocation || {}
-                          // Fallback across different AI SDK versions
-                          const toolCallId = p.toolCallId || ti.toolCallId || `tc-${pi}`
-                          const toolName = p.toolName || ti.toolName || p.name || "unknown-tool"
-                          const stateRaw = p.state || ti.state || (p.type === "tool-result" ? "result" : "call")
+            {messages.map((msg) => {
+              const seenToolsForMessage = new Set<string>()
 
-                          let result = p.output || p.result || ti.result
-
-                          // Handle Vercel AI SDK wrapping MCP tool responses in { content: [{ type: "text", text: "..." }] }
-                          if (result && typeof result === "object" && Array.isArray(result.content) && result.content.length > 0) {
-                            const text = result.content[0].text
-                            if (typeof text === "string") {
-                              try {
-                                result = JSON.parse(text)
-                              } catch {
-                                result = { text }
-                              }
-                            }
-                          }
-
-                          // If output-available, it's a finished result (Vercel AI SDK dynamic-tool pattern)
-                          const actualState = (stateRaw === "result" || stateRaw === "output-available" || result !== undefined) ? "result" : "call"
-
-                          return (
-                            <ToolCallCard
-                              key={toolCallId}
-                              toolName={toolName}
-                              state={actualState}
-                              result={result}
-                            />
-                          )
-                        }
-                        return null
-                      })}
-                      {(!msg.parts || msg.parts.length === 0) && (
-                        <div className="rounded-2xl rounded-bl-sm bg-muted text-foreground px-4 py-2.5">
-                          &nbsp;
-                        </div>
-                      )}
+              return (
+                <motion.div
+                  key={msg.id}
+                  variants={messageVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary mt-0.5">
+                      <Bot className="h-4 w-4" />
                     </div>
                   )}
-                </div>
-                {msg.role === "user" && (
-                  <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-muted mt-0.5">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                  <div className={`max-w-[80%] ${msg.role === "user"
+                    ? "rounded-2xl px-4 py-2.5 text-sm leading-relaxed bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap"
+                    : "text-sm leading-relaxed"
+                    }`}>
+                    {msg.role === "user" ? (
+                      msg.parts?.filter((p): p is { type: "text"; text: string } => p.type === "text").map((p) => p.text).join("") ?? ""
+                    ) : (
+                      <div className="space-y-1">
+                        {msg.parts?.map((part, pi) => {
+                          if (part.type === "text" && part.text.length > 0) {
+                            return (
+                              <div key={pi} className="rounded-2xl rounded-bl-sm bg-muted text-foreground px-4 py-2.5">
+                                <MarkdownMessage content={part.text} />
+                              </div>
+                            )
+                          }
+                          if (part.type.startsWith("tool-") || part.type === "tool-invocation" || part.type === "dynamic-tool") {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const p = part as any
+                            const ti = p.toolInvocation || {}
+                            // Fallback across different AI SDK versions
+                            const toolCallId = p.toolCallId || ti.toolCallId || `tc-${pi}`
+                            const toolName = p.toolName || ti.toolName || p.name || "unknown-tool"
+                            const stateRaw = p.state || ti.state || (p.type === "tool-result" ? "result" : "call")
+
+                            let result = p.output || p.result || ti.result
+
+                            // Handle Vercel AI SDK wrapping MCP tool responses in { content: [{ type: "text", text: "..." }] }
+                            if (result && typeof result === "object" && Array.isArray(result.content) && result.content.length > 0) {
+                              const text = result.content[0].text
+                              if (typeof text === "string") {
+                                try {
+                                  result = JSON.parse(text)
+                                } catch {
+                                  result = { text }
+                                }
+                              }
+                            }
+
+                            // If output-available, it's a finished result (Vercel AI SDK dynamic-tool pattern)
+                            const actualState = (stateRaw === "result" || stateRaw === "output-available" || result !== undefined) ? "result" : "call"
+
+                            const isFirstOfType = !seenToolsForMessage.has(toolName)
+                            if (isFirstOfType) {
+                              seenToolsForMessage.add(toolName)
+                            }
+
+                            return (
+                              <ToolCallCard
+                                key={toolCallId}
+                                toolName={toolName}
+                                state={actualState}
+                                result={result}
+                                isVisualUnique={isFirstOfType}
+                              />
+                            )
+                          }
+                          return null
+                        })}
+                        {(!msg.parts || msg.parts.length === 0) && (
+                          <div className="rounded-2xl rounded-bl-sm bg-muted text-foreground px-4 py-2.5">
+                            &nbsp;
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </motion.div>
-            ))}
+                  {msg.role === "user" && (
+                    <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-muted mt-0.5">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
 
             {/* Thinking animation */}
             <AnimatePresence>

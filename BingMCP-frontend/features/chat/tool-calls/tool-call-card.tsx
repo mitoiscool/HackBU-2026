@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronDown, Loader2, CheckCircle2 } from "lucide-react"
 
@@ -9,10 +9,23 @@ import { ToolResultRenderer } from "./tool-result-renderer"
 import { ToolLoadingRenderer } from "./tool-loading-renderer"
 import { ToolCallCardProps } from "./types"
 
-export function ToolCallCard({ toolName, state, result }: ToolCallCardProps) {
+export function ToolCallCard({ toolName, state, result, isVisualUnique = true }: ToolCallCardProps) {
     const [expanded, setExpanded] = useState(true)
+    const [showResult, setShowResult] = useState(false)
+    const [startTime] = useState(() => Date.now())
     const isComplete = state === "result"
     const meta = getToolMeta(toolName)
+
+    useEffect(() => {
+        if (isComplete) {
+            const elapsed = Date.now() - startTime
+            // Ensure the user sees the beautiful animation for at least 2.5s total, 
+            // but add a guaranteed 1s minimum delay even if it took 5s, just letting it finish a cycle.
+            const delay = Math.max(2500 - elapsed, 1200)
+            const timer = setTimeout(() => setShowResult(true), delay)
+            return () => clearTimeout(timer)
+        }
+    }, [isComplete, startTime])
 
     return (
         <motion.div
@@ -30,7 +43,7 @@ export function ToolCallCard({ toolName, state, result }: ToolCallCardProps) {
                 <span className="flex-1 font-medium text-foreground text-xs">
                     {meta.label}
                 </span>
-                {isComplete ? (
+                {showResult ? (
                     <motion.span
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -61,13 +74,13 @@ export function ToolCallCard({ toolName, state, result }: ToolCallCardProps) {
                         className="overflow-hidden"
                     >
                         <div className="border-t border-tool-call-border px-3.5 py-2.5 space-y-2">
-                            {isComplete && result != null ? (
+                            {showResult && result != null ? (
                                 <ToolResultRenderer
                                     toolName={toolName}
                                     result={result}
                                 />
                             ) : (
-                                <ToolLoadingRenderer toolName={toolName} />
+                                <ToolLoadingRenderer toolName={toolName} isVisualUnique={isVisualUnique} />
                             )}
                         </div>
                     </motion.div>

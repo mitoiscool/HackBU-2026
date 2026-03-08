@@ -5,12 +5,23 @@ import { cn } from "@/lib/utils"
 import Image from "next/image"
 import bearcatsImg from "@/lib/images/bearcats.png"
 
+import React from "react"
+
 interface GymVisualProps {
   className?: string
 }
 
+interface FaceProps {
+  w: number | string
+  h: number | string
+  transform: string
+  color: string
+  bg?: string
+  children?: React.ReactNode
+}
+
 // 3D Face Component to build wireframe shapes
-const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: any) => (
+const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: FaceProps) => (
   <div
     className="absolute border overflow-hidden"
     style={{
@@ -48,7 +59,7 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
   return (
     <div
       className="absolute w-0 h-0 flex items-center justify-center"
-      style={{ 
+      style={{
         transformStyle: "preserve-3d",
         left: "50%",
         top: "50%",
@@ -80,21 +91,21 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
       <Face w={2} h={consoleHeight} transform={`translate3d(${-tWidth / 2 + 1}px, ${-tLength / 2 + 2}px, ${consoleHeight / 2}px) rotateX(90deg)`} color={cBlue} />
       {/* Right Post */}
       <Face w={2} h={consoleHeight} transform={`translate3d(${tWidth / 2 - 1}px, ${-tLength / 2 + 2}px, ${consoleHeight / 2}px) rotateX(90deg)`} color={cBlue} />
-      
+
       {/* The Screen Panel */}
       <Face w={tWidth} h={16} transform={`translate3d(0px, ${-tLength / 2 + 2}px, ${consoleHeight}px) rotateX(45deg)`} color={cBlue} bg={taken ? "rgba(0,170,255,0.1)" : "rgba(0,51,85,0.1)"}>
         {/* Animated UI bars on the screen */}
         {taken && (
           <div className="absolute inset-2 flex flex-col justify-between">
-            <motion.div 
-              className="h-1 bg-[#00ff88]" 
-              animate={{ width: ["20%", "80%", "40%"] }} 
-              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }} 
+            <motion.div
+              className="h-1 bg-[#00ff88]"
+              animate={{ width: ["20%", "80%", "40%"] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
             />
-            <motion.div 
-              className="h-1 bg-[#00aaff]" 
-              animate={{ width: ["60%", "30%", "90%"] }} 
-              transition={{ repeat: Infinity, duration: 2.1, ease: "easeInOut" }} 
+            <motion.div
+              className="h-1 bg-[#00aaff]"
+              animate={{ width: ["60%", "30%", "90%"] }}
+              transition={{ repeat: Infinity, duration: 2.1, ease: "easeInOut" }}
             />
           </div>
         )}
@@ -111,15 +122,15 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
           <div style={{ transform: "rotateX(-90deg) rotateY(20deg)", position: "absolute" }}>
             {/* Original Head */}
             <div className="absolute left-[-10px] top-[-60px] w-[20px] h-[20px] rounded-full border-2 border-white bg-black shadow-[0_0_12px_white]" />
-            
+
             {/* Bearcat Face Overlay */}
             <div className="absolute left-[-20px] top-[-70px] w-[40px] h-[40px] flex items-center justify-center pointer-events-none z-10">
               <Image src={bearcatsImg} alt="Bearcat" className="w-full h-full object-contain" />
             </div>
-            
+
             {/* Torso */}
             <div className="absolute left-[-1.5px] top-[-40px] w-[3px] h-[35px] bg-white shadow-[0_0_12px_white]" />
-            
+
             {/* Left Arm */}
             <div className="absolute left-[-1.5px] top-[-35px] w-[3px] h-[18px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(25deg)", transformOrigin: "top center" }}>
               {/* Lower Arm */}

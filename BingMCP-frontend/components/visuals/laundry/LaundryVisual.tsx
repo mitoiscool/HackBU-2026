@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
@@ -9,7 +10,17 @@ interface LaundryVisualProps {
   free?: number
 }
 
-const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", shadow, children }: any) => (
+interface FaceProps {
+  w: number | string
+  h: number | string
+  transform: string
+  color: string
+  bg?: string
+  shadow?: string
+  children?: React.ReactNode
+}
+
+const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", shadow, children }: FaceProps) => (
   <div
     className="absolute border overflow-hidden"
     style={{
@@ -37,43 +48,46 @@ const Washer3D = ({ x, y, rotationZ = 0, isOn }: { x: number; y: number; rotatio
   const cGreen = "#00ff88"
   const cWhite = "#ffffff"
   const cBlue = "#00aaff"
-  
+
   // Glowing green when OFF, white when ON
   const color = isOn ? cWhite : cGreen
   const bg = isOn ? "rgba(255,255,255,0.1)" : "rgba(0,255,136,0.05)"
   const shadow = isOn ? `0 0 10px ${cWhite}40, inset 0 0 10px ${cWhite}40` : `0 0 10px ${cGreen}40, inset 0 0 10px ${cGreen}40`
 
+  const [shakeDuration] = React.useState(() => 0.1 + Math.random() * 0.1)
+  const [spinDuration] = React.useState(() => 0.6 + Math.random() * 0.4)
+
   return (
     <motion.div
       className="absolute w-0 h-0 flex items-center justify-center"
-      style={{ 
+      style={{
         transformStyle: "preserve-3d",
         left: "50%",
         top: "50%",
       }}
       initial={{ x, y, rotateZ: rotationZ, rotateX: 0, rotateY: 0, z: 0 }}
       animate={
-        isOn 
-          ? { 
-              rotateZ: [rotationZ - 1, rotationZ + 1, rotationZ - 1],
-              rotateX: [-1, 1, -1],
-              rotateY: [-1, 1, -1],
-              z: [0, 1, 0]
-            } 
+        isOn
+          ? {
+            rotateZ: [rotationZ - 1, rotationZ + 1, rotationZ - 1],
+            rotateX: [-1, 1, -1],
+            rotateY: [-1, 1, -1],
+            z: [0, 1, 0]
+          }
           : { rotateZ: rotationZ, rotateX: 0, rotateY: 0, z: 0 }
       }
       transition={
-        isOn 
-          ? { 
-              repeat: Infinity, 
-              duration: 0.1 + Math.random() * 0.1, 
-              ease: "linear" 
-            }
+        isOn
+          ? {
+            repeat: Infinity,
+            duration: shakeDuration,
+            ease: "linear"
+          }
           : { duration: 0 }
       }
     >
       {/* Base container lifted by h/2 so it sits on the floor */}
-      <div className="absolute w-0 h-0" style={{ transformStyle: "preserve-3d", transform: `translateZ(${h/2}px)` }}>
+      <div className="absolute w-0 h-0" style={{ transformStyle: "preserve-3d", transform: `translateZ(${h / 2}px)` }}>
         {/* Top Face */}
         <Face w={w} h={l} transform={`translateZ(${h / 2}px)`} color={color} bg={bg} shadow={shadow}>
           <div className="absolute top-1 left-1 w-2 h-2 rounded-full border border-current opacity-70" style={{ color }} />
@@ -85,27 +99,27 @@ const Washer3D = ({ x, y, rotationZ = 0, isOn }: { x: number; y: number; rotatio
 
         {/* Front Face (-Y direction) */}
         <Face w={w} h={h} transform={`translateY(${-l / 2}px) rotateX(90deg)`} color={color} bg={bg} shadow={shadow}>
-          <div 
-            className="absolute left-1/2 top-1/2 rounded-full border-[2px]" 
-            style={{ 
+          <div
+            className="absolute left-1/2 top-1/2 rounded-full border-[2px]"
+            style={{
               width: 16,
               height: 16,
-              marginLeft: -8, 
-              marginTop: -2, 
+              marginLeft: -8,
+              marginTop: -2,
               borderColor: color,
               boxShadow: isOn ? `0 0 5px ${color}, inset 0 0 5px ${color}` : 'none'
             }}
           >
-             {isOn && (
-               <div className="absolute inset-0 rounded-full overflow-hidden opacity-80 flex items-center justify-center">
-                 <motion.div 
-                   className="w-[12px] h-[12px] border-[3px] border-dashed"
-                   style={{ borderColor: cBlue, borderRadius: "50%" }}
-                   animate={{ rotate: 360 }}
-                   transition={{ repeat: Infinity, duration: 0.6 + Math.random() * 0.4, ease: "linear" }}
-                 />
-               </div>
-             )}
+            {isOn && (
+              <div className="absolute inset-0 rounded-full overflow-hidden opacity-80 flex items-center justify-center">
+                <motion.div
+                  className="w-[12px] h-[12px] border-[3px] border-dashed"
+                  style={{ borderColor: cBlue, borderRadius: "50%" }}
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: spinDuration, ease: "linear" }}
+                />
+              </div>
+            )}
           </div>
           <div className="absolute bottom-2 left-1/2 w-10 h-1.5 border border-current opacity-50" style={{ color, marginLeft: -20 }} />
         </Face>
@@ -128,18 +142,18 @@ const Basket3D = ({ x, y, rotationZ = 0 }: { x: number; y: number; rotationZ?: n
   const l = 24
   const h = 12
   const cColor = "rgba(255, 255, 255, 0.4)"
-  
+
   return (
     <div
       className="absolute w-0 h-0 flex items-center justify-center"
-      style={{ 
+      style={{
         transformStyle: "preserve-3d",
         left: "50%",
         top: "50%",
         transform: `translate3d(${x}px, ${y}px, 0px) rotateZ(${rotationZ}deg)`
       }}
     >
-      <div className="absolute w-0 h-0" style={{ transformStyle: "preserve-3d", transform: `translateZ(${h/2}px)` }}>
+      <div className="absolute w-0 h-0" style={{ transformStyle: "preserve-3d", transform: `translateZ(${h / 2}px)` }}>
         {/* Top (Open) */}
         <Face w={w} h={l} transform={`translateZ(${h / 2}px)`} color={cColor} bg="rgba(0,0,0,0)" shadow="none">
           <div className="absolute top-1 left-1 w-10 h-10 bg-[#00aaff] opacity-30 blur-[2px] rounded-full" />
@@ -162,7 +176,7 @@ export function LaundryVisual({ className, taken = 3, free = 3 }: LaundryVisualP
   const startX = -((total - 1) * spacing) / 2;
 
   const machines = [];
-  
+
   for (let i = 0; i < total; i++) {
     // Washers in the front row (y = -40, facing forward)
     machines.push({

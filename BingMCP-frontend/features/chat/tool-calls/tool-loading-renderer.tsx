@@ -1,112 +1,121 @@
-import { motion } from "framer-motion"
-import { Bus, Dumbbell, WashingMachine, UtensilsCrossed, Circle, Loader2 } from "lucide-react"
+import { useEffect, useState, type ComponentType } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Loader2 } from "lucide-react"
 
-export function ToolLoadingRenderer({ toolName }: { toolName: string }) {
-    switch (toolName) {
-        case "get_bus_locations":
-            return (
-                <div className="flex items-center gap-3 rounded-lg bg-background/40 border border-border/50 px-3 py-2.5">
-                    <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 shrink-0">
-                        <motion.div
-                            animate={{ x: [-2, 4, -2] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                            <Bus className="h-4 w-4 text-primary" />
-                        </motion.div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 flex-1">
-                        <div className="h-3 w-24 bg-muted animate-pulse rounded" />
-                        <div className="h-2 w-32 bg-muted/60 animate-pulse rounded" />
-                    </div>
-                </div>
-            )
-        case "get_gym_capacity":
-            return (
-                <div className="rounded-lg bg-background/40 border border-border/50 px-3.5 py-3">
-                    <div className="flex items-center gap-2.5 mb-2.5">
-                        <motion.div
-                            animate={{ scale: [0.9, 1.1, 0.9], rotate: [-5, 5, -5] }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                            <Dumbbell className="h-4 w-4 text-primary shrink-0" />
-                        </motion.div>
-                        <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-                    </div>
-                    <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
-                        <motion.div
-                            className="h-full w-1/3 bg-primary/30 rounded-full"
-                            animate={{ x: ["-100%", "300%"] }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        />
-                    </div>
-                </div>
-            )
-        case "get_laundry_availability":
-            return (
-                <div className="rounded-lg bg-background/40 border border-border/50 px-3.5 py-3">
-                    <div className="flex items-center gap-2.5 mb-2.5">
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        >
-                            <WashingMachine className="h-4 w-4 text-primary shrink-0" />
-                        </motion.div>
-                        <div className="h-3 w-28 bg-muted animate-pulse rounded" />
-                    </div>
-                    <div className="flex gap-4">
-                        <div className="flex-1 space-y-1.5">
-                            <div className="h-2 w-12 bg-muted animate-pulse rounded" />
-                            <div className="h-2 w-full bg-muted/50 rounded-full" />
-                        </div>
-                        <div className="flex-1 space-y-1.5">
-                            <div className="h-2 w-12 bg-muted animate-pulse rounded" />
-                            <div className="h-2 w-full bg-muted/50 rounded-full" />
-                        </div>
-                    </div>
-                </div>
-            )
-        case "get_dining_status":
-        case "get_dining_menu":
-            return (
-                <div className="rounded-lg bg-background/40 border border-border/50 px-3.5 py-3">
-                    <div className="flex items-center gap-2.5 mb-2.5">
-                        <motion.div
-                            animate={{ y: [-1, 1, -1] }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                            <UtensilsCrossed className="h-4 w-4 text-primary shrink-0" />
-                        </motion.div>
-                        <div className="flex-1">
-                            <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-                        </div>
-                        <div className="h-3 w-10 bg-muted animate-pulse rounded-full" />
-                    </div>
-                    <div className="h-2 w-24 bg-muted/50 animate-pulse rounded mt-2" />
-                </div>
-            )
-        case "get_available_library_rooms":
-            return (
-                <div className="rounded-lg bg-background/40 border border-border/50 px-3.5 py-3">
-                    <div className="flex items-center gap-2.5 mb-2.5">
-                        <motion.div
-                            animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                            <Circle className="h-4 w-4 text-primary shrink-0" />
-                        </motion.div>
-                        <div className="flex-1 space-y-2">
-                            <div className="h-3 w-40 bg-muted animate-pulse rounded" />
-                            <div className="h-2 w-24 bg-muted/60 animate-pulse rounded" />
-                        </div>
-                    </div>
-                </div>
-            )
-        default:
-            return (
-                <div className="flex items-center gap-3 rounded-lg bg-background/40 border border-border/50 px-3 py-2.5">
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                    <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-                </div>
-            )
+type VisualModule = {
+    default?: unknown
+    [key: string]: unknown
+}
+
+interface ToolVisualMap {
+    exportName: string
+    description: string
+    load: () => Promise<VisualModule>
+}
+
+// Map the backend tool names to the visual components
+const VISUAL_MAP: Record<string, ToolVisualMap> = {
+    get_bus_locations: {
+        exportName: "BusVisual",
+        description: "Transit loading state that implies movement and ETA updates.",
+        load: () => import("@/components/visuals/bus/BusVisual") as Promise<VisualModule>,
+    },
+    get_dining_status: {
+        exportName: "DiningVisual",
+        description: "Neon overhead tray: center plate + food blob + top-right glass in strict holographic tones.",
+        load: () => import("@/components/visuals/dining/DiningVisual") as Promise<VisualModule>,
+    },
+    get_dining_menu: {
+        exportName: "DiningVisual",
+        description: "Neon overhead tray: center plate + food blob + top-right glass in strict holographic tones.",
+        load: () => import("@/components/visuals/dining/DiningVisual") as Promise<VisualModule>,
+    },
+    get_gym_capacity: {
+        exportName: "GymVisual",
+        description: "Workout capacity check state with energetic timing.",
+        load: () => import("@/components/visuals/gym/GymVisual") as Promise<VisualModule>,
+    },
+    get_laundry_availability: {
+        exportName: "LaundryVisual",
+        description: "Machine polling visual that resembles a washer drum.",
+        load: () => import("@/components/visuals/laundry/LaundryVisual") as Promise<VisualModule>,
+    },
+    get_available_library_rooms: {
+        exportName: "LibraryVisual",
+        description: "Study room availability check with scanline feedback.",
+        load: () => import("@/components/visuals/library/LibraryVisual") as Promise<VisualModule>,
+    },
+}
+
+const FALLBACK_VISUAL: ToolVisualMap = {
+    exportName: "FallbackVisual",
+    description: "Safe default when a tool has no mapped visual yet.",
+    load: () => import("@/components/visuals/shared/FallbackVisual") as Promise<VisualModule>,
+}
+
+function resolveComponent(module: VisualModule, exportName: string): ComponentType | null {
+    const candidate = module[exportName] ?? module.default
+    if (typeof candidate === "function") {
+        return candidate as ComponentType
     }
+    return null
+}
+
+export function ToolLoadingRenderer({ toolName, isVisualUnique = true }: { toolName: string; isVisualUnique?: boolean }) {
+    const [resolvedVisual, setResolvedVisual] = useState<ComponentType | null>(null)
+
+    const mapping = VISUAL_MAP[toolName] ?? FALLBACK_VISUAL
+
+    useEffect(() => {
+        let cancelled = false
+
+        mapping
+            .load()
+            .then((module) => {
+                if (cancelled) return
+                setResolvedVisual(() => resolveComponent(module, mapping.exportName))
+            })
+            .catch(() => {
+                if (cancelled) return
+                setResolvedVisual(null)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [mapping])
+
+    const ActiveVisual = resolvedVisual
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
+                {ActiveVisual && isVisualUnique ? (
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
+                            animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
+                            exit={{ opacity: 0, clipPath: "inset(0 0 0 100%)" }}
+                            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                            className="w-full h-full"
+                        >
+                            <ActiveVisual />
+                        </motion.div>
+                    </AnimatePresence>
+                ) : (
+                    <div className="h-48 flex items-center justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        {!isVisualUnique && (
+                            <span className="ml-3 text-sm text-muted-foreground">Running concurrent operation...</span>
+                        )}
+                    </div>
+                )}
+            </div>
+            <div className="px-1">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                    {mapping.description}
+                </p>
+            </div>
+        </div>
+    )
 }
