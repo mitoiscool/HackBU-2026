@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
@@ -20,7 +20,7 @@ import { MarkdownMessage } from "@/components/ui/markdown-message"
 import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
 import { StatPanel, type StatEntry } from "@/features/chat/stat-panel/StatPanel"
-import { BaxterOverlay } from "@/components/baxter/BaxterOverlay"
+import { BaxterOverlay, type BaxterOverlayPosition } from "@/components/baxter/BaxterOverlay"
 import { MobileBottomTabs } from "@/components/navigation/MobileBottomTabs"
 import { useChromeSpeechInput } from "@/features/chat/voice/useChromeSpeechInput"
 import {
@@ -56,14 +56,28 @@ const BAXTER_TOOL_IMAGES: Record<string, StaticImageData[]> = {
 
 const BAXTER_FALLBACK_IMAGES: StaticImageData[] = [baxterthinking, baxterjumping, baxterfootball, baxterice]
 
-function pickRandomBaxterFallbackImage(): StaticImageData {
-  return BAXTER_FALLBACK_IMAGES[Math.floor(Math.random() * BAXTER_FALLBACK_IMAGES.length)]
-}
-
 function pickBaxterImage(toolName?: string | null): StaticImageData {
   const pool = toolName ? (BAXTER_TOOL_IMAGES[toolName] ?? BAXTER_FALLBACK_IMAGES) : BAXTER_FALLBACK_IMAGES
   return pool[Math.floor(Math.random() * pool.length)]
 }
+
+type BaxterInstance = {
+  id: number
+  position: BaxterOverlayPosition
+  positionId: string
+  src: StaticImageData
+}
+
+const BAXTER_POSITIONS: Array<BaxterOverlayPosition & { id: string }> = [
+  { id: "upper-right", right: "3%", top: "10%" },
+  { id: "upper-mid-right", right: "18%", top: "18%" },
+  { id: "mid-right", right: "4%", top: "36%" },
+  { id: "center-right", right: "20%", top: "48%" },
+  { id: "lower-right", right: "6%", bottom: "20%" },
+  { id: "lower-mid-right", right: "24%", bottom: "12%" },
+  { id: "top-center", right: "34%", top: "8%" },
+  { id: "bottom-center-right", right: "36%", bottom: "8%" },
+]
 
 const SCENARIOS: Scenario[] = [
   {
@@ -249,9 +263,8 @@ export default function ChatWindow() {
   const [homeBuilding, setHomeBuilding] = useState<BuildingPreference | "">("")
   const [preferredDiningHall, setPreferredDiningHall] = useState<DiningHallPreference | "">("")
   const [displayName, setDisplayName] = useState("")
-  const [baxterImageSrc, setBaxterImageSrc] = useState<StaticImageData | null>(null)
-  const [baxterOverlayVisible, setBaxterOverlayVisible] = useState(false)
-  const baxterDismissedRef = useRef(false)
+  const [baxterOverlays, setBaxterOverlays] = useState<BaxterInstance[]>([])
+  const baxterOverlayIdRef = useRef(0)
   const baxterLastToolNameRef = useRef<string | null>(null)
   const baxterShouldShowAfterResponseRef = useRef(false)
   const baxterWasBusyRef = useRef(false)
@@ -344,6 +357,26 @@ export default function ChatWindow() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
+  const spawnBaxterOverlay = useCallback((toolName?: string | null) => {
+    setBaxterOverlays((current) => {
+      const usedPositionIds = new Set(current.map((overlay) => overlay.positionId))
+      const availablePositions = BAXTER_POSITIONS.filter((position) => !usedPositionIds.has(position.id))
+      const positionPool = availablePositions.length > 0 ? availablePositions : BAXTER_POSITIONS
+      const selectedPosition = positionPool[Math.floor(Math.random() * positionPool.length)]
+      const { id: positionId, ...position } = selectedPosition
+
+      return [
+        ...current,
+        {
+          id: baxterOverlayIdRef.current++,
+          position,
+          positionId,
+          src: pickBaxterImage(toolName),
+        },
+      ]
+    })
+  }, [])
+
   // Track the final tool used during a response without changing the visible overlay mid-stream.
   useEffect(() => {
     if (status !== "streaming") return
@@ -366,15 +399,13 @@ export default function ChatWindow() {
     const isBusy = status === "submitted" || status === "streaming"
 
     if (!isBusy && baxterWasBusyRef.current && baxterEnabled && baxterShouldShowAfterResponseRef.current) {
-      baxterDismissedRef.current = false
-      setBaxterImageSrc(pickBaxterImage(baxterLastToolNameRef.current))
-      setBaxterOverlayVisible(true)
+      spawnBaxterOverlay(baxterLastToolNameRef.current)
       baxterShouldShowAfterResponseRef.current = false
       baxterLastToolNameRef.current = null
     }
 
     baxterWasBusyRef.current = isBusy
-  }, [baxterEnabled, status])
+  }, [baxterEnabled, spawnBaxterOverlay, status])
 
   useEffect(() => {
     let active = true
@@ -388,9 +419,7 @@ export default function ChatWindow() {
           const enabled = storedBaxter === "true"
           setBaxterEnabled(enabled)
           if (enabled) {
-            baxterDismissedRef.current = false
-            setBaxterImageSrc(pickRandomBaxterFallbackImage())
-            setBaxterOverlayVisible(true)
+            spawnBaxterOverlay()
           }
         }
 
@@ -425,19 +454,17 @@ export default function ChatWindow() {
     return () => {
       active = false
     }
-  }, [])
+  }, [spawnBaxterOverlay])
 
   const handleBaxterChange = (enabled: boolean) => {
     setBaxterEnabled(enabled)
     baxterShouldShowAfterResponseRef.current = enabled && (status === "submitted" || status === "streaming")
     baxterLastToolNameRef.current = null
-    baxterDismissedRef.current = false
 
     if (enabled) {
-      setBaxterImageSrc(pickRandomBaxterFallbackImage())
-      setBaxterOverlayVisible(true)
+      spawnBaxterOverlay()
     } else {
-      setBaxterOverlayVisible(false)
+      setBaxterOverlays([])
     }
 
     try {
@@ -509,10 +536,8 @@ export default function ChatWindow() {
       preferredDiningHall: preferredDiningHall || undefined,
     })
 
-    baxterDismissedRef.current = false
     baxterLastToolNameRef.current = null
     baxterShouldShowAfterResponseRef.current = baxterEnabled
-    setBaxterOverlayVisible(false)
 
     sendMessage(
       { parts: [{ type: "text", text }] },
@@ -532,16 +557,18 @@ export default function ChatWindow() {
         />
       )}
 
-      {baxterEnabled && (
-        <BaxterOverlay
-          src={baxterImageSrc}
-          visible={baxterOverlayVisible}
-          onDismiss={() => {
-            baxterDismissedRef.current = true
-            setBaxterOverlayVisible(false)
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {baxterOverlays.map((overlay) => (
+          <BaxterOverlay
+            key={overlay.id}
+            position={overlay.position}
+            src={overlay.src}
+            onDismiss={() => {
+              setBaxterOverlays((current) => current.filter((item) => item.id !== overlay.id))
+            }}
+          />
+        ))}
+      </AnimatePresence>
 
       {/* Left stat panel */}
       <AnimatePresence>

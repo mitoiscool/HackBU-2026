@@ -38,6 +38,10 @@ const VISUAL_MAP: Record<string, ToolVisualMap> = {
         exportName: "LibraryVisual",
         load: () => import("@/components/visuals/library/LibraryVisual") as Promise<VisualModule>,
     },
+    get_bengaged_events: {
+        exportName: "EventsVisual",
+        load: () => import("@/components/visuals/events/EventsVisual") as Promise<VisualModule>,
+    },
 }
 
 const FALLBACK_VISUAL: ToolVisualMap = {

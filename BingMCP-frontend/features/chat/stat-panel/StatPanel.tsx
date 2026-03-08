@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion"
 import {
     Bus, Dumbbell, WashingMachine, UtensilsCrossed, BookOpen,
-    Circle, MapPin, Clock, Activity, BookMarked,
+    Circle, MapPin, Clock, Activity, BookMarked, CalendarDays, AlertTriangle,
 } from "lucide-react"
 
 export interface StatEntry {

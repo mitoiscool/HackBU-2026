@@ -1,9 +1,16 @@
 import { createMCPClient, type MCPClient } from "@ai-sdk/mcp"
 
-export const MCP_SERVER_URL = process.env.MCP_SERVER_URL ?? "http://localhost:8000/sse"
+export const MCP_SERVER_URL = process.env.MCP_SERVER_URL ?? "http://localhost:8000/mcp"
 
 export type ToolResultMap = Record<string, unknown>
 export type McpTools = Awaited<ReturnType<MCPClient["tools"]>>
+type TransportType = "http" | "sse"
+type TransportCandidate = {
+  type: TransportType
+  url: string
+}
+
+const PRELOADED_TOOLS = new WeakMap<MCPClient, McpTools>()
 
 type ToolExecutionOptions = {
   toolCallId: string
@@ -28,6 +35,48 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
     Symbol.asyncIterator in value &&
     typeof (value as AsyncIterable<unknown>)[Symbol.asyncIterator] === "function"
   )
+}
+
+function replacePathSuffix(url: string, fromSuffix: string, toSuffix: string): string {
+  if (!url.endsWith(fromSuffix)) {
+    return url
+  }
+  return `${url.slice(0, -fromSuffix.length)}${toSuffix}`
+}
+
+function uniqueCandidates(candidates: TransportCandidate[]): TransportCandidate[] {
+  const seen = new Set<string>()
+  const result: TransportCandidate[] = []
+  for (const candidate of candidates) {
+    const key = `${candidate.type}:${candidate.url}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(candidate)
+  }
+  return result
+}
+
+function buildTransportCandidates(rawUrl: string): TransportCandidate[] {
+  const configured = rawUrl.trim()
+  if (configured.endsWith("/sse")) {
+    return uniqueCandidates([
+      { type: "sse", url: configured },
+      { type: "http", url: replacePathSuffix(configured, "/sse", "/mcp") },
+    ])
+  }
+
+  if (configured.endsWith("/mcp")) {
+    return uniqueCandidates([
+      { type: "http", url: configured },
+      { type: "sse", url: replacePathSuffix(configured, "/mcp", "/sse") },
+    ])
+  }
+
+  const trimmed = configured.replace(/\/+$/, "")
+  return uniqueCandidates([
+    { type: "http", url: `${trimmed}/mcp` },
+    { type: "sse", url: `${trimmed}/sse` },
+  ])
 }
 
 async function settleToolExecution(result: Promise<unknown> | AsyncIterable<unknown> | unknown): Promise<unknown> {
@@ -90,10 +139,33 @@ export function parseToolResultPayload(raw: unknown): ToolResultMap {
 }
 
 export async function connectMcpClient(name: string): Promise<MCPClient> {
-  return createMCPClient({
-    transport: { type: "sse", url: MCP_SERVER_URL },
-    name,
-  })
+  const candidates = buildTransportCandidates(MCP_SERVER_URL)
+  let lastError: unknown = null
+
+  for (const candidate of candidates) {
+    const client = await createMCPClient({
+      transport: { type: candidate.type, url: candidate.url },
+      name,
+    })
+
+    try {
+      const tools = await client.tools()
+      PRELOADED_TOOLS.set(client, tools)
+      return client
+    } catch (error) {
+      lastError = error
+      await client.close().catch(() => {})
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError
+  }
+  throw new Error(
+    `Unable to connect to MCP server using: ${candidates
+      .map((candidate) => `${candidate.type}:${candidate.url}`)
+      .join(", ")}`
+  )
 }
 
 export async function closeMcpClient(client: MCPClient | null | undefined): Promise<void> {
@@ -102,6 +174,10 @@ export async function closeMcpClient(client: MCPClient | null | undefined): Prom
 }
 
 export async function getMcpTools(client: MCPClient) {
+  const preloaded = PRELOADED_TOOLS.get(client)
+  if (preloaded) {
+    return preloaded
+  }
   return client.tools()
 }
 

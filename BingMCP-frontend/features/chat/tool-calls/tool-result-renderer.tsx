@@ -3,6 +3,7 @@ import { DiningStatusResult } from "./dining-status-result"
 import { DiningMenuResult } from "./dining-menu-result"
 import { GymResult } from "./gym-result"
 import { LaundryResult } from "./laundry-result"
+import { EventsResult } from "./events-result"
 import { FallbackResult } from "./fallback-result"
 
 export function ToolResultRenderer({
@@ -36,6 +37,8 @@ export function ToolResultRenderer({
             return <GymResult data={data} />
         case "get_laundry_availability":
             return <LaundryResult data={data} />
+        case "get_bengaged_events":
+            return <EventsResult data={data} />
         default:
             return <FallbackResult data={data} />
     }

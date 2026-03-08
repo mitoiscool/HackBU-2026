@@ -35,13 +35,13 @@ Create `.env.local` in `BingMCP-frontend/`:
 ```bash
 GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
 GEMINI_MODEL=gemini-3-flash-preview
-MCP_SERVER_URL=http://localhost:8000/sse
+MCP_SERVER_URL=http://localhost:8000/mcp
 ```
 
 Notes:
 
 - `GEMINI_MODEL` is optional; defaults to `gemini-3-flash-preview`
-- `MCP_SERVER_URL` is optional; defaults to `http://localhost:8000/sse`
+- `MCP_SERVER_URL` is optional; defaults to `http://localhost:8000/mcp`
 
 ## Run Locally
 

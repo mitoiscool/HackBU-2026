@@ -1,5 +1,5 @@
 import { ReactNode } from "react"
-import { Bus, UtensilsCrossed, Dumbbell, WashingMachine, Circle, Clock } from "lucide-react"
+import { Bus, UtensilsCrossed, Dumbbell, WashingMachine, Circle, Clock, CalendarDays } from "lucide-react"
 
 export const TOOL_META: Record<string, { label: string; icon: ReactNode }> = {
     get_bus_locations: {
@@ -25,6 +25,10 @@ export const TOOL_META: Record<string, { label: string; icon: ReactNode }> = {
     get_available_library_rooms: {
         label: "Finding Study Rooms",
         icon: <Circle className="h-3.5 w-3.5" />,
+    },
+    get_bengaged_events: {
+        label: "Fetching Events",
+        icon: <CalendarDays className="h-3.5 w-3.5" />,
     },
 }
 
