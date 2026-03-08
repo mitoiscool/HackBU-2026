@@ -1,353 +1,131 @@
 # BingMCP
 
-An MCP (Model Context Protocol) server that aggregates live Binghamton University campus data and exposes it as MCP tools. Any AI assistant can query real-time laundry availability, bus locations, dining hall status/hours, dining menus, and gym capacity.
+BingMCP is a FastMCP server that exposes live Binghamton University data as tools for LLM clients.
 
-## Structure
+## What It Provides
 
+The server loads tools dynamically from `tools/*/tool.py` and currently exposes:
+
+- `get_laundry_availability(building: str)`
+- `get_bus_locations()`
+- `get_dining_status(hall: str)`
+- `get_dining_menu(hall: str, date?: str)`
+- `get_gym_capacity()`
+- `get_available_library_rooms(library?: str, category?: str)`
+
+Each tool is wrapped with cache + graceful error handling. On fetch failures, tools return:
+
+```json
+{
+  "status": "unavailable",
+  "reason": "..."
+}
 ```
+
+## Project Layout
+
+```text
 BingMCP/
-  server.py             — FastMCP entry point, dynamic tool loader, SSE transport
-  cache.py              — Shared TTL cache layer (per data source)
-  requirements.txt      — Python dependencies
-  run.sh                — Venv setup + server launch script
+  server.py
+  cache.py
+  run.sh
+  requirements.txt
   tools/
-    test_tool/tool.py   — Boilerplate example tool
-    laundry/tool.py     — Washer/dryer availability by residential building
-    bus/tool.py         — Campus bus locations and arrival estimates
-    dining/tool.py      — Dining hall open status/hours + normalized Sodexo menu data
-    gym/tool.py         — East Gym occupancy and hours
+    bus/tool.py
+    dining/tool.py
+    gym/tool.py
+    laundry/tool.py
+    library/tool.py
+    test_tool/tool.py
 ```
 
-## Tools
+## Requirements
 
-| Tool | Args | Description |
-|------|------|-------------|
-| `get_laundry_availability` | `building: str` | Washer/dryer counts for Hinman, Newing, Dickinson, Mountainview, Hillside, CIW |
-| `get_bus_locations` | — | Next arrivals for Inner Loop, Outer Loop, Night Owl, Express |
-| `get_dining_status` | `hall: str` | Open/closed + today's hours/intervals for Hinman, CIW, C4, Appalachian (ACC) |
-| `get_dining_menu` | `hall: str, date?: str` | Normalized Sodexo menu data for Hinman, CIW, C4, Appalachian |
-| `get_gym_capacity` | — | East Gym (Events Center) occupancy (percent + count) and open status |
-| `get_available_library_rooms` | `library: str, category: str` | Available study rooms at Bartle, Science, or UDC library |
+- Python 3.10+
 
-## Transport
-
-The server runs as an **SSE HTTP server** on port 8000. Connect MCP clients to:
-
-```
-http://localhost:8000/sse
-```
-
-Port and host are configurable via environment variables:
+Install dependencies:
 
 ```bash
-HOST=0.0.0.0 PORT=8000 python server.py
+cd BingMCP
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## Cache TTLs
-
-| Source  | TTL    |
-|---------|--------|
-| Bus     | 20s    |
-| Laundry | 45s    |
-| Library | 1 min  |
-| Gym     | 2 min  |
-| Dining  | 5 min  |
-
-## Dining API Schemas (Verified)
-
-The dining tool currently makes **two** upstream Sodexo API calls.
-
-### Hall Mapping
-
-| Hall | Site ID | Location ID |
-|------|---------|-------------|
-| Hinman Dining Hall | `74015007` | `16976` |
-| CIW Dining Hall | `74015005` | `17395` |
-| C4 Dining Hall | `74015006` | `18060` |
-| Appalachian Dining Hall (ACC) | `74015009` | `17338` |
-
-### API 1: Menu Data
-
-- Method: `GET`
-- URL: `https://api-prd.sodexomyway.net/v0.2/data/menu/{SITE_ID}/{LOCATION_ID}?date={YYYY-MM-DD}`
-- Required headers:
-  - `API-Key: <key>`
-  - `Accept: application/json,text/plain,*/*`
-  - `User-Agent: ...`
-  - `Referer: https://binghamton.sodexomyway.com/`
-- Query params:
-  - `date` (required by upstream; tool normalizes date formats before calling)
-
-Request schema:
-
-```http
-GET /v0.2/data/menu/{SITE_ID}/{LOCATION_ID}?date=2026-03-07
-```
-
-Raw response schema (observed):
-
-```json
-[
-  {
-    "name": "BRUNCH",
-    "groups": [
-      {
-        "name": "SAVORY",
-        "sortOrder": 0,
-        "items": [
-          {
-            "menuItemId": 7139657360,
-            "formalName": "Cage Free Scrambled Eggs",
-            "description": "Light and fluffy scrambled eggs...",
-            "course": "SAVORY",
-            "price": 0.0,
-            "allergens": [{"allergen": 2, "name": "Egg", "contains": "true"}],
-            "isVegan": false,
-            "isVegetarian": true,
-            "isMindful": false,
-            "isSwell": false,
-            "isPlantBased": false
-          }
-        ]
-      }
-    ]
-  }
-]
-```
-
-### API 2: Composition/Hours Data
-
-- Method: `POST`
-- URL: `https://api-prd.sodexomyway.net/v0.2/layout/getComposition`
-- Required headers:
-  - `API-Key: <key>`
-  - `Content-Type: application/json`
-  - `Accept: application/json,text/plain,*/*`
-  - `User-Agent: ...`
-  - `Referer: https://binghamton.sodexomyway.com/`
-
-Request body schema:
-
-```json
-{
-  "content": {
-    "tenant": "binghamton",
-    "localDateTime": "2026-03-07T15:00:00"
-  },
-  "globalization": {
-    "language": "en",
-    "country": "US",
-    "locale": "en-US",
-    "pathPrefix": "/en-us"
-  },
-  "request": {
-    "uri": "/locations/"
-  }
-}
-```
-
-Response schema used by tool:
-
-```json
-{
-  "subject": {
-    "regions": [
-      {
-        "fragments": [
-          {
-            "type": "Location",
-            "content": {
-              "main": {
-                "name": "Hinman Dining Hall",
-                "menus": [
-                  {
-                    "content": {
-                      "metadata": {
-                        "locationId": "74015007",
-                        "menuId": "16976"
-                      }
-                    }
-                  }
-                ],
-                "openingHours": {
-                  "standardHours": [
-                    {
-                      "days": [{"key": "1", "value": "Monday"}],
-                      "hours": [
-                        {
-                          "allDay": false,
-                          "startTime": {"hour": "08", "minute": "00", "period": "AM"},
-                          "finishTime": {"hour": "08", "minute": "00", "period": "PM"},
-                          "label": "Dinner"
-                        }
-                      ]
-                    }
-                  ],
-                  "seasonalHours": [
-                    {
-                      "from": "2026-02-27T06:00:00Z",
-                      "to": "2026-02-28T23:59:59Z",
-                      "openingHours": []
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Current Tool Output Schemas
-
-`get_gym_capacity()` returns:
-
-```json
-{
-  "capacity_percent": 42,
-  "is_open": true,
-  "count": 87
-}
-```
-
-`get_bus_locations()` returns:
-
-```json
-{
-  "routes": [
-    {
-      "name": "Inner Loop (Northbound)",
-      "next_arrival_minutes": 3,
-      "current_stop": "University Union",
-      "lat": 42.0887,
-      "lng": -75.9679
-    }
-  ]
-}
-```
-
-`get_dining_status(hall: str)` returns:
-
-```json
-{
-  "hall": "Hinman Dining Hall",
-  "is_open": true,
-  "hours": "08:00 AM-08:00 PM",
-  "intervals": [{"start": "08:00 AM", "end": "08:00 PM"}],
-  "timezone": "America/New_York",
-  "source": "sodexo_layout_getComposition"
-}
-```
-
-`get_dining_menu(hall: str, date?: str)` returns:
-
-```json
-{
-  "hall": "Hinman Dining Hall",
-  "site_id": "74015007",
-  "location_id": "16976",
-  "date": "2026-03-07",
-  "summary": {"meal_count": 3, "station_count": 17, "item_count": 91},
-  "meals": [
-    {
-      "meal_name": "BRUNCH",
-      "stations": [
-        {
-          "station_name": "SAVORY",
-          "items": [
-            {
-              "menu_item_id": 7139657360,
-              "name": "Cage Free Scrambled Eggs",
-              "description": "...",
-              "course": "SAVORY",
-              "price": 0.0,
-              "dietary_flags": {
-                "vegan": false,
-                "vegetarian": true,
-                "mindful": false,
-                "swell": false,
-                "plant_based": false
-              },
-              "allergens": [{"id": 2, "name": "Egg", "contains": true}]
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "source": "sodexo_menu_data"
-}
-```
-
-### Verification Notes
-
-- `GET data/menu/...` returns `401` without `API-Key`.
-- `GET data/menu/...` returns `200` for all 4 halls with key.
-- `POST layout/getComposition` returns `200` with key and includes resident dining hall `openingHours`.
-- `date` is required by upstream menu API; missing date returns upstream `500`.
-
-## Library API
-
-`get_available_library_rooms(library, category)` queries the LibCal room booking system at Binghamton University. A room is included in the result only if it has an open (unbooked) slot covering the current time.
-
-### Library & Category Mapping
-
-| Library | `lid` | Category | `gid` |
-|---------|-------|----------|-------|
-| `bartle` | 4610 | `group_study` | 7823 |
-| `bartle` | 4610 | `third_floor_projects` | 46677 |
-| `bartle` | 4610 | `media_viewing` | 30039 |
-| `bartle` | 4610 | `fine_arts_study` | 49381 |
-| `bartle` | 4610 | `bloomberg` | 7830 |
-| `science` | 4608 | `group_study` | 7832 |
-| `science` | 4608 | `collaboration_space` | 26438 |
-| `udc` | 4611 | `group_study` | 7835 |
-
-### Output Schema
-
-`get_available_library_rooms(library, category)` returns:
-
-```json
-{
-  "library": "bartle",
-  "category": "group_study",
-  "available_rooms": ["Room 101", "Room 204"]
-}
-```
-
-### API Details
-
-- Page URL: `https://libcal.binghamton.edu/spaces?lid={lid}&gid={gid}` (GET, extracts room names from JS)
-- Grid URL: `https://libcal.binghamton.edu/spaces/availability/grid` (POST, returns slot availability)
-- Both requests require `X-Requested-With: XMLHttpRequest` and `Referer` matching the page URL.
-
----
-
-## Setup & Running
+Or use the helper script:
 
 ```bash
-chmod +x run.sh  # only needed the first time
+cd BingMCP
+chmod +x run.sh
 ./run.sh
 ```
 
-This creates `.venv`, installs dependencies from `requirements.txt`, and starts the SSE server.
+## Running the Server
 
-Or run directly:
+### Default mode: stdio
 
 ```bash
 python server.py
 ```
 
-## Adding / Updating Tools
+### HTTP mode (Streamable HTTP transport)
 
-Each tool file follows this pattern:
+```bash
+python server.py --transport http
+```
 
-1. **`_fetch_*()`** — module-level async stub at the top of the file. This is the only function that needs to be updated with real API/scraping logic. Replace only the `return` statement.
-2. **`register(mcp)`** — wires the tool into FastMCP with caching and error handling. Do not modify this.
+In HTTP mode, the server listens on:
 
-All tools return a graceful `{"status": "unavailable", "reason": "..."}` dict on any failure — they never raise to the agent.
+- Host: `localhost`
+- Port: `8000`
+- MCP endpoint: `http://localhost:8000/mcp`
 
-To add a new tool, create `tools/<name>/tool.py` with a `register(mcp: FastMCP)` function. It will be picked up automatically on next server start.
+## Cache TTLs
+
+Configured in `cache.py`:
+
+- Bus: `20s`
+- Laundry: `45s`
+- Library: `60s`
+- Gym: `120s`
+- Dining: `300s`
+
+## Tool Notes
+
+### Laundry
+
+- Upstream: LaundryView (`https://www.laundryview.com/api/currentRoomData`)
+- Input must be one of the configured room keys in `tools/laundry/tool.py`
+
+### Bus
+
+- Upstream: ETA Spot (`https://binghamtonupublic.etaspot.net/service.php`)
+- Returns route name, next arrival estimate, current stop, and coordinates
+
+### Dining
+
+- Upstream: Sodexo APIs (`data/menu` + `layout/getComposition`)
+- Supported halls: `hinman`, `ciw`, `c4`, `appalachian` (plus aliases like `acc`)
+- `get_dining_menu` accepts date formats:
+  - `YYYY-MM-DD`
+  - `MM-DD-YYYY`
+  - `MM/DD/YYYY`
+  - `YYYY/MM/DD`
+
+### Gym
+
+- Upstream: `https://binggym.com/api/gym`
+- Returns occupancy percent, open/closed, and count
+
+### Library
+
+- Upstream: LibCal (`/spaces` + `/spaces/availability/grid`)
+- Supported libraries and categories are defined in `tools/library/tool.py`
+
+## Adding a New Tool
+
+1. Create `tools/<name>/tool.py`
+2. Export `register(mcp: FastMCP)`
+3. Register one or more `@mcp.tool()` functions
+
+`server.py` auto-loads any `tools/*/tool.py` file on startup.
