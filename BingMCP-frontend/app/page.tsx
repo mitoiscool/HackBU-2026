@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
-import { Timer, Bus, MoonStar, Utensils, Paperclip, ArrowUp, User, Bot, Settings2, LayoutDashboard } from "lucide-react"
+import { Timer, Bus, MoonStar, Utensils, Paperclip, ArrowUp, User, Bot, Settings2, LayoutDashboard, Mic, MicOff } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,6 +21,7 @@ import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
 import { StatPanel, type StatEntry } from "@/features/chat/stat-panel/StatPanel"
 import { BaxterOverlay } from "@/components/baxter/BaxterOverlay"
+import { useChromeSpeechInput } from "@/features/chat/voice/useChromeSpeechInput"
 import {
   BUILDING_OPTIONS,
   DINING_HALL_OPTIONS,
@@ -297,6 +298,28 @@ export default function ChatWindow() {
   }, [messages])
 
   const isStreaming = status === "streaming" || status === "submitted"
+  const {
+    isSupported: isVoiceSupported,
+    state: voiceState,
+    error: voiceError,
+    toggle: toggleVoiceInput,
+    resetError: resetVoiceError,
+  } = useChromeSpeechInput({
+    value: input,
+    onChange: setInput,
+    disabled: isStreaming,
+  })
+  const voiceStatusText = voiceState === "listening"
+    ? "Listening..."
+    : voiceState === "processing"
+      ? "Processing..."
+      : voiceError
+  const isVoiceActive = voiceState === "listening" || voiceState === "processing"
+  const micButtonTitle = !isVoiceSupported
+    ? "Voice input is available in Chrome-compatible browsers."
+    : isVoiceActive
+      ? "Stop voice input"
+      : "Start voice input"
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -747,7 +770,12 @@ export default function ChatWindow() {
             <Textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                if (voiceError) {
+                  resetVoiceError()
+                }
+                setInput(e.target.value)
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault()
@@ -759,20 +787,47 @@ export default function ChatWindow() {
               rows={1}
             />
             <div className="flex items-center justify-between p-2">
-              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-transparent">
-                <Paperclip className="h-4 w-4" />
-                <span className="sr-only">Attach file</span>
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                disabled={!input.trim() || isStreaming}
-                onClick={submit}
-                className="h-8 w-8 mr-1 rounded-full transition-opacity disabled:opacity-40"
-              >
-                <ArrowUp className="h-4 w-4" />
-                <span className="sr-only">Send</span>
-              </Button>
+              <div className="flex min-w-0 items-center gap-2">
+                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-transparent">
+                  <Paperclip className="h-4 w-4" />
+                  <span className="sr-only">Attach file</span>
+                </Button>
+                {voiceStatusText && (
+                  <p className={`truncate text-xs ${voiceState === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                    {voiceStatusText}
+                  </p>
+                )}
+              </div>
+              <div className="mr-1 flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title={micButtonTitle}
+                  aria-label={micButtonTitle}
+                  aria-pressed={isVoiceActive}
+                  disabled={!isVoiceSupported || isStreaming}
+                  onClick={toggleVoiceInput}
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:bg-transparent hover:text-foreground disabled:opacity-40"
+                >
+                  {isVoiceSupported ? (
+                    <Mic className={`h-4 w-4 ${isVoiceActive ? "text-destructive" : ""}`} />
+                  ) : (
+                    <MicOff className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">{micButtonTitle}</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  disabled={!input.trim() || isStreaming}
+                  onClick={submit}
+                  className="h-8 w-8 rounded-full transition-opacity disabled:opacity-40"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                  <span className="sr-only">Send</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

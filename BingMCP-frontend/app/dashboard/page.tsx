@@ -3,15 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ChevronDown,
-  LayoutDashboard,
-  Loader2,
-  RefreshCw,
-  WashingMachine,
-} from "lucide-react"
+import { AlertTriangle, ArrowLeft, LayoutDashboard, Loader2, RefreshCw, WashingMachine, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BusVisual } from "@/components/visuals/bus/BusVisual"
 import { DiningVisual } from "@/components/visuals/dining/DiningVisual"
@@ -52,7 +44,6 @@ type MenuCacheEntry = {
 
 type MenuCacheByHall = Partial<Record<DiningHallPreference, MenuCacheEntry>>
 type MenuLoadingByHall = Partial<Record<DiningHallPreference, boolean>>
-type ExpandedByHall = Record<DiningHallPreference, boolean>
 
 function isSectionOk<T extends Record<string, unknown>>(
   section: DashboardSection<T> | undefined
@@ -105,6 +96,56 @@ function DashboardCard({
   )
 }
 
+function OverlayModal({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            aria-label="Close overlay"
+          />
+
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: EASE }}
+            className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
+              <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function getLaundryVisualState(laundrySection: DashboardSection<LaundryData> | undefined): { taken: number; free: number } {
   if (!isSectionOk(laundrySection)) {
     return { taken: 3, free: 3 }
@@ -140,27 +181,25 @@ export default function DashboardPage() {
   const [isHydrated, setIsHydrated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isBusExpanded, setIsBusExpanded] = useState(false)
+  const [isLaundryRefreshing, setIsLaundryRefreshing] = useState(false)
+  const [isBusOverlayOpen, setIsBusOverlayOpen] = useState(false)
+  const [activeDiningHall, setActiveDiningHall] = useState<DiningHallPreference | null>(null)
 
   const [laundryBuilding, setLaundryBuilding] = useState<BuildingPreference>(BUILDING_OPTIONS[0].value)
-
-  const [expandedByHall, setExpandedByHall] = useState<ExpandedByHall>(
-    Object.fromEntries(DINING_HALL_OPTIONS.map((option) => [option.value, false])) as ExpandedByHall
-  )
 
   const [menuCacheByHall, setMenuCacheByHall] = useState<MenuCacheByHall>({})
   const [menuLoadingByHall, setMenuLoadingByHall] = useState<MenuLoadingByHall>({})
 
   const fetchDashboard = useCallback(
-    async ({ initial }: { initial: boolean }) => {
-      if (initial) {
+    async ({ showInitialLoader, building }: { showInitialLoader: boolean; building: BuildingPreference }) => {
+      if (showInitialLoader) {
         setIsLoading(true)
       } else {
         setIsRefreshing(true)
       }
 
       try {
-        const response = await fetch(`/api/dashboard?laundryBuilding=${encodeURIComponent(laundryBuilding)}`, {
+        const response = await fetch(`/api/dashboard?laundryBuilding=${encodeURIComponent(building)}`, {
           cache: "no-store",
         })
 
@@ -179,8 +218,43 @@ export default function DashboardPage() {
         setIsRefreshing(false)
       }
     },
-    [laundryBuilding]
+    []
   )
+
+  const refreshLaundrySection = useCallback(async (building: BuildingPreference) => {
+    setIsLaundryRefreshing(true)
+
+    try {
+      const response = await fetch(`/api/dashboard?laundryBuilding=${encodeURIComponent(building)}`, {
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        throw new Error(`Laundry request failed (${response.status})`)
+      }
+
+      const payload = (await response.json()) as DashboardPayload
+
+      setDashboard((previous) => {
+        if (!previous) {
+          return payload
+        }
+
+        return {
+          ...previous,
+          generatedAt: payload.generatedAt,
+          laundryBuilding: payload.laundryBuilding,
+          laundry: payload.laundry,
+        }
+      })
+      setRequestError(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to refresh laundry"
+      setRequestError(message)
+    } finally {
+      setIsLaundryRefreshing(false)
+    }
+  }, [])
 
   const fetchHallMenu = useCallback(
     async (hall: DiningHallPreference) => {
@@ -234,35 +308,49 @@ export default function DashboardPage() {
   )
 
   useEffect(() => {
+    let resolvedBuilding: BuildingPreference = BUILDING_OPTIONS[0].value
+
     try {
       const normalized = normalizePreferences({
         building: window.localStorage.getItem("building") ?? undefined,
       })
 
       if (normalized.building) {
+        resolvedBuilding = normalized.building
         setLaundryBuilding(normalized.building)
       }
     } catch {
       // Ignore localStorage access errors.
     } finally {
       setIsHydrated(true)
+      void fetchDashboard({ showInitialLoader: true, building: resolvedBuilding })
     }
-  }, [])
-
-  useEffect(() => {
-    if (!isHydrated) return
-    void fetchDashboard({ initial: true })
-  }, [fetchDashboard, isHydrated])
+  }, [fetchDashboard])
 
   useEffect(() => {
     if (!isHydrated) return
 
     const timer = window.setInterval(() => {
-      void fetchDashboard({ initial: false })
+      void fetchDashboard({ showInitialLoader: false, building: laundryBuilding })
     }, AUTO_REFRESH_MS)
 
     return () => window.clearInterval(timer)
-  }, [fetchDashboard, isHydrated])
+  }, [fetchDashboard, isHydrated, laundryBuilding])
+
+  useEffect(() => {
+    if (!isBusOverlayOpen && !activeDiningHall) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      setIsBusOverlayOpen(false)
+      setActiveDiningHall(null)
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [activeDiningHall, isBusOverlayOpen])
 
   const handleLaundryBuildingChange = (value: string) => {
     const isValid = BUILDING_OPTIONS.some((option) => option.value === value)
@@ -276,23 +364,24 @@ export default function DashboardPage() {
     } catch {
       // Ignore localStorage access errors.
     }
+
+    void refreshLaundrySection(nextBuilding)
   }
 
-  const handleHallToggle = (hall: DiningHallPreference) => {
-    const isExpanding = !expandedByHall[hall]
-
-    setExpandedByHall((prev) => ({
-      ...prev,
-      [hall]: isExpanding,
-    }))
-
-    if (isExpanding) {
-      void fetchHallMenu(hall)
-    }
+  const handleDiningHallOpen = (hall: DiningHallPreference) => {
+    setActiveDiningHall(hall)
+    void fetchHallMenu(hall)
   }
 
   const busSummary = summarizeBus(dashboard?.bus)
   const laundryVisualState = getLaundryVisualState(dashboard?.laundry)
+
+  const activeDiningOption = activeDiningHall
+    ? DINING_HALL_OPTIONS.find((option) => option.value === activeDiningHall)
+    : undefined
+  const activeDiningStatus = activeDiningHall ? dashboard?.diningStatusByHall[activeDiningHall] : undefined
+  const activeMenuEntry = activeDiningHall ? menuCacheByHall[activeDiningHall] : undefined
+  const isActiveMenuLoading = activeDiningHall ? Boolean(menuLoadingByHall[activeDiningHall]) : false
 
   return (
     <div className="min-h-svh bg-background">
@@ -317,7 +406,7 @@ export default function DashboardPage() {
               variant="outline"
               size="sm"
               className="rounded-lg"
-              onClick={() => void fetchDashboard({ initial: false })}
+              onClick={() => void fetchDashboard({ showInitialLoader: false, building: laundryBuilding })}
               disabled={isRefreshing}
             >
               {isRefreshing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
@@ -372,6 +461,7 @@ export default function DashboardPage() {
                     </option>
                   ))}
                 </select>
+                {isLaundryRefreshing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
               </div>
 
               <LaundryVisual className="max-w-none w-full" taken={laundryVisualState.taken} free={laundryVisualState.free} />
@@ -395,43 +485,14 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-tool-call-border bg-tool-call-bg">
-                <button
-                  type="button"
-                  onClick={() => setIsBusExpanded((prev) => !prev)}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-tool-call-border/30"
-                >
-                  <span className="flex-1 text-xs font-medium text-foreground">All active routes</span>
-                  <motion.span
-                    animate={{ rotate: isBusExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="shrink-0 text-muted-foreground"
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </motion.span>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {isBusExpanded && (
-                    <motion.div
-                      key="bus-content"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                      className="overflow-hidden"
-                    >
-                      <div className="border-t border-tool-call-border px-3.5 py-2.5">
-                        {isSectionOk(dashboard?.bus) ? (
-                          <BusResult data={dashboard.bus.data} />
-                        ) : (
-                          <UnavailableNotice reason={dashboard?.bus.reason ?? "Bus data unavailable"} />
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-center rounded-lg"
+                onClick={() => setIsBusOverlayOpen(true)}
+              >
+                View all active routes
+              </Button>
             </DashboardCard>
 
             <DashboardCard toolName="get_dining_menu" title="Dining Halls">
@@ -440,10 +501,7 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {DINING_HALL_OPTIONS.map((option) => {
                   const hall = option.value
-                  const isExpanded = expandedByHall[hall]
                   const diningStatus = dashboard?.diningStatusByHall[hall]
-                  const menuEntry = menuCacheByHall[hall]
-                  const isMenuLoading = Boolean(menuLoadingByHall[hall])
 
                   const badgeClass = isSectionOk(diningStatus)
                     ? diningStatus.data.is_open
@@ -458,63 +516,17 @@ export default function DashboardPage() {
                     : "Unavailable"
 
                   return (
-                    <div key={hall} className="overflow-hidden rounded-xl border border-tool-call-border bg-tool-call-bg">
-                      <button
-                        type="button"
-                        onClick={() => handleHallToggle(hall)}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-tool-call-border/30"
-                      >
-                        <span className="flex-1 text-xs font-medium text-foreground">{option.label}</span>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>
-                          {badgeLabel}
-                        </span>
-                        <motion.span
-                          animate={{ rotate: isExpanded ? 180 : 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="shrink-0 text-muted-foreground"
-                        >
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        </motion.span>
-                      </button>
-
-                      <AnimatePresence initial={false}>
-                        {isExpanded && (
-                          <motion.div
-                            key={`${hall}-content`}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="overflow-hidden"
-                          >
-                            <div className="space-y-2 border-t border-tool-call-border px-3.5 py-2.5">
-                              {isSectionOk(diningStatus) ? (
-                                <DiningStatusResult data={diningStatus.data} />
-                              ) : (
-                                <UnavailableNotice reason={diningStatus?.reason ?? "Dining status unavailable"} />
-                              )}
-
-                              {isMenuLoading ? (
-                                <div className="flex items-center gap-2 rounded-lg border border-border bg-background/60 px-3.5 py-2 text-xs text-muted-foreground">
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  Loading menu...
-                                </div>
-                              ) : menuEntry ? (
-                                menuEntry.section.status === "ok" ? (
-                                  <DiningMenuResult data={menuEntry.section.data} />
-                                ) : (
-                                  <UnavailableNotice reason={menuEntry.section.reason} />
-                                )
-                              ) : (
-                                <div className="rounded-lg border border-border bg-background/60 px-3.5 py-2 text-xs text-muted-foreground">
-                                  Expand to load today&apos;s menu.
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                    <button
+                      key={hall}
+                      type="button"
+                      onClick={() => handleDiningHallOpen(hall)}
+                      className="flex w-full items-center gap-2.5 rounded-xl border border-tool-call-border bg-tool-call-bg px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-tool-call-border/30"
+                    >
+                      <span className="flex-1 text-xs font-medium text-foreground">{option.label}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>
+                        {badgeLabel}
+                      </span>
+                    </button>
                   )
                 })}
               </div>
@@ -522,6 +534,49 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      <OverlayModal
+        open={isBusOverlayOpen}
+        title="All Active Bus Routes"
+        onClose={() => setIsBusOverlayOpen(false)}
+      >
+        {isSectionOk(dashboard?.bus) ? (
+          <BusResult data={dashboard.bus.data} />
+        ) : (
+          <UnavailableNotice reason={dashboard?.bus.reason ?? "Bus data unavailable"} />
+        )}
+      </OverlayModal>
+
+      <OverlayModal
+        open={Boolean(activeDiningHall)}
+        title={activeDiningOption?.label ?? "Dining Hall"}
+        onClose={() => setActiveDiningHall(null)}
+      >
+        <div className="space-y-3">
+          {isSectionOk(activeDiningStatus) ? (
+            <DiningStatusResult data={activeDiningStatus.data} />
+          ) : (
+            <UnavailableNotice reason={activeDiningStatus?.reason ?? "Dining status unavailable"} />
+          )}
+
+          {isActiveMenuLoading ? (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-background/60 px-3.5 py-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading menu...
+            </div>
+          ) : activeMenuEntry ? (
+            activeMenuEntry.section.status === "ok" ? (
+              <DiningMenuResult data={activeMenuEntry.section.data} />
+            ) : (
+              <UnavailableNotice reason={activeMenuEntry.section.reason} />
+            )
+          ) : (
+            <div className="rounded-lg border border-border bg-background/60 px-3.5 py-2 text-xs text-muted-foreground">
+              Loading today&apos;s menu...
+            </div>
+          )}
+        </div>
+      </OverlayModal>
     </div>
   )
 }
