@@ -29,9 +29,9 @@ export function ToolCallCard({ toolName, state, result, isVisualUnique = true }:
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            initial={{ opacity: 0, x: -16, y: 4 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="my-1.5 rounded-xl border border-tool-call-border bg-tool-call-bg overflow-hidden"
         >
             <button
@@ -73,16 +73,38 @@ export function ToolCallCard({ toolName, state, result, isVisualUnique = true }:
                         transition={{ duration: 0.2, ease: "easeInOut" }}
                         className="overflow-hidden"
                     >
-                        <div className="border-t border-tool-call-border px-3.5 py-2.5 space-y-2">
-                            {showResult && result != null ? (
-                                <ToolResultRenderer
-                                    toolName={toolName}
-                                    result={result}
-                                />
-                            ) : (
-                                <ToolLoadingRenderer toolName={toolName} isVisualUnique={isVisualUnique} />
-                            )}
-                        </div>
+                        <motion.div
+                            layout
+                            transition={{ layout: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } }}
+                            className="border-t border-tool-call-border px-3.5 py-2.5 space-y-2"
+                        >
+                            <AnimatePresence mode="wait">
+                                {showResult && result != null ? (
+                                    <motion.div
+                                        key="result"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    >
+                                        <ToolResultRenderer
+                                            toolName={toolName}
+                                            result={result}
+                                        />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="loading"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <ToolLoadingRenderer toolName={toolName} isVisualUnique={isVisualUnique} />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

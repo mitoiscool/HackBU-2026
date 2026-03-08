@@ -120,7 +120,8 @@ async def _fetch_bus() -> dict:
         if direction:
             route_name = f"{route_name} ({direction})"
 
-        minutes = _coerce_int(next_eta.get("minutes"), fallback=-1)
+        minutes_raw = _coerce_int(next_eta.get("minutes"), fallback=-1)
+        minutes = "N/A" if minutes_raw > 100 else minutes_raw
 
         stop_id = next_eta.get("stopID")
         if stop_id is None:

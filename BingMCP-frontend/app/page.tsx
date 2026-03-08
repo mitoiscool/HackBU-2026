@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
@@ -18,6 +18,7 @@ import { ScenarioCard, type Scenario } from "@/components/ui/scenario-card"
 import { MarkdownMessage } from "@/components/ui/markdown-message"
 import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
+import { StatPanel, type StatEntry } from "@/features/chat/stat-panel/StatPanel"
 
 const SCENARIOS: Scenario[] = [
   {
@@ -50,17 +51,23 @@ const SCENARIOS: Scenario[] = [
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 10 },
+  hidden: { opacity: 0, y: 20, scale: 0.97 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: EASE, delay: i * 0.07 },
+    scale: 1,
+    transition: { duration: 0.4, ease: EASE, delay: 0.08 + i * 0.07 },
   }),
 }
 
-const messageVariants = {
+const userMessageVariants = {
   hidden: { opacity: 0, y: 8 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: EASE } },
+}
+
+const assistantMessageVariants = {
+  hidden: { opacity: 0, x: -20, y: 6 },
+  visible: { opacity: 1, x: 0, y: 0, transition: { duration: 0.38, ease: EASE } },
 }
 
 type SettingsPopoverProps = {
@@ -156,6 +163,49 @@ export default function ChatWindow() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const heroName = displayName.trim()
 
+  // Track when each tool result first appeared so the timestamp is stable
+  const statTimestampsRef = useRef<Map<string, number>>(new Map())
+
+  const statEntries = useMemo((): StatEntry[] => {
+    const latestByTool = new Map<string, StatEntry>()
+
+    for (const msg of messages) {
+      if (msg.role !== "assistant") continue
+      for (const part of (msg.parts ?? [])) {
+        if (!part.type.startsWith("tool-") && part.type !== "tool-invocation" && part.type !== "dynamic-tool") continue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const p = part as any
+        const ti = p.toolInvocation || {}
+        const toolName: string = p.toolName || ti.toolName || p.name || "unknown"
+        const stateRaw = p.state || ti.state || (p.type === "tool-result" ? "result" : "call")
+        if (stateRaw !== "result" && stateRaw !== "output-available") continue
+
+        let result = p.output || p.result || ti.result
+        if (result && typeof result === "object" && Array.isArray(result.content) && result.content.length > 0) {
+          const text = result.content[0].text
+          if (typeof text === "string") {
+            try { result = JSON.parse(text) } catch { result = { text } }
+          }
+        }
+
+        if (!result || (result as Record<string, unknown>).status === "unavailable") continue
+
+        if (!statTimestampsRef.current.has(toolName)) {
+          statTimestampsRef.current.set(toolName, Date.now())
+        }
+
+        latestByTool.set(toolName, {
+          id: toolName,
+          toolName,
+          result: result as Record<string, unknown>,
+          timestamp: statTimestampsRef.current.get(toolName)!,
+        })
+      }
+    }
+
+    return Array.from(latestByTool.values())
+  }, [messages])
+
   const isStreaming = status === "streaming" || status === "submitted"
 
   useEffect(() => {
@@ -231,8 +281,30 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex flex-col h-svh items-center">
+    <div className="flex h-svh w-full overflow-hidden">
       {isTestModeEnabled && <TestMode />}
+
+      {/* Left stat panel */}
+      <AnimatePresence>
+        {statEntries.length > 0 && (
+          <motion.aside
+            key="stat-panel"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 304, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            className="shrink-0 h-full border-r border-border bg-background/80 backdrop-blur-sm overflow-hidden"
+            style={{ minWidth: 0 }}
+          >
+            <div className="w-[304px] h-full">
+              <StatPanel entries={statEntries} />
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Right: chat column */}
+      <div className="flex flex-1 flex-col overflow-hidden items-center min-w-0">
 
       {/* Top bar */}
       <div className="w-full flex justify-end px-4 py-2 shrink-0">
@@ -260,17 +332,17 @@ export default function ChatWindow() {
               <div className="mb-10">
                 <motion.h1
                   className="text-3xl font-semibold"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, ease: EASE }}
+                  transition={{ duration: 0.4, ease: EASE }}
                 >
                   {heroName ? `Hello there, ${heroName}!` : "Hello there!"}
                 </motion.h1>
                 <motion.p
                   className="text-xl text-muted-foreground mt-1"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 18 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, ease: EASE, delay: 0.06 }}
+                  transition={{ duration: 0.4, ease: EASE, delay: 0.06 }}
                 >
                   What do you want to tackle on campus?
                 </motion.p>
@@ -298,14 +370,14 @@ export default function ChatWindow() {
 
         {/* Chat thread */}
         {messages.length > 0 && (
-          <div className="flex flex-1 flex-col gap-6 px-4 md:px-8 pt-8 pb-4 overflow-y-auto">
+          <div className="flex flex-1 flex-col gap-6 px-4 md:px-8 pt-8 pb-4 overflow-y-auto overflow-x-hidden">
             {messages.map((msg) => {
               const seenToolsForMessage = new Set<string>()
 
               return (
                 <motion.div
                   key={msg.id}
-                  variants={messageVariants}
+                  variants={msg.role === "user" ? userMessageVariants : assistantMessageVariants}
                   initial="hidden"
                   animate="visible"
                   className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -396,10 +468,10 @@ export default function ChatWindow() {
               {status === "submitted" && (
                 <motion.div
                   key="thinking"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 4 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  initial={{ opacity: 0, y: 16, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 22 }}
                   className="flex gap-3 justify-start"
                 >
                   <div className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary mt-0.5">
@@ -483,6 +555,8 @@ export default function ChatWindow() {
         </div>
 
       </div>
+
+      </div>{/* end chat column */}
     </div>
   )
 }
