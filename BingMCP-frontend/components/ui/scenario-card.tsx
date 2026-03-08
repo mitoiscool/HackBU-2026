@@ -10,7 +10,6 @@ export interface Scenario {
     icon: React.ReactNode
     title: string
     prompt: string
-    badges: string[]
 }
 
 interface ScenarioCardProps {
@@ -53,22 +52,6 @@ export function ScenarioCard({ scenario, setInput, inputRef }: ScenarioCardProps
             <p className="text-sm text-muted-foreground leading-relaxed mb-4 font-normal">
                 &ldquo;{scenario.prompt}&rdquo;
             </p>
-
-            {/* API Badges */}
-            <div className="flex flex-wrap gap-2 mt-auto">
-                {scenario.badges.map((badge) => (
-                    <span
-                        key={badge}
-                        className="
-              px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider
-              text-scenario-badge-text bg-scenario-badge-bg border border-scenario-badge-border
-              rounded-md
-            "
-                    >
-                        {badge}
-                    </span>
-                ))}
-            </div>
         </MotionButton>
     )
 }

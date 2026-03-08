@@ -3,6 +3,7 @@
 import React from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { useTheme } from "next-themes"
 
 interface FaceProps {
   w: number | string
@@ -38,11 +39,15 @@ const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: Face
   </div>
 )
 
-const Bus3D = () => {
+const Bus3D = ({ isLight }: { isLight: boolean }) => {
   const w = 32 // width
   const l = 80 // length
   const h = 36 // height
-  const cGreen = "#00ff88"
+  const cGreen = isLight ? "#00aa55" : "#00ff88"
+  const cWhite = isLight ? "#000000" : "#ffffff"
+  const cBg = isLight ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.8)"
+  const bgGreen = isLight ? "rgba(0,170,85,0.1)" : "rgba(0,255,136,0.05)"
+  const bgWhite = isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)"
 
   return (
     <motion.div
@@ -52,56 +57,56 @@ const Bus3D = () => {
       transition={{ repeat: Infinity, duration: 0.4, ease: "easeInOut" }}
     >
       {/* Top Face */}
-      <Face w={w} h={l} transform={`translateZ(${h / 2}px)`} color={cGreen} bg="rgba(0,255,136,0.05)">
-        <div className="absolute top-[10%] left-[20%] w-[60%] h-[20%] border border-white bg-white/10" />
-        <div className="absolute top-[40%] left-[20%] w-[60%] h-[40%] border border-white bg-white/10" />
+      <Face w={w} h={l} transform={`translateZ(${h / 2}px)`} color={cGreen} bg={bgGreen}>
+        <div className="absolute top-[10%] left-[20%] w-[60%] h-[20%] border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
+        <div className="absolute top-[40%] left-[20%] w-[60%] h-[40%] border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
       </Face>
 
       {/* Bottom Face */}
-      <Face w={w} h={l} transform={`translateZ(${-h / 2}px)`} color={cGreen} />
+      <Face w={w} h={l} transform={`translateZ(${-h / 2}px)`} color={cGreen} bg={cBg} />
 
       {/* Front Face (-Y) -> Floor is top, Roof is bottom */}
-      <Face w={w} h={h} transform={`translateY(${-l / 2}px) rotateX(90deg)`} color={cGreen}>
+      <Face w={w} h={h} transform={`translateY(${-l / 2}px) rotateX(90deg)`} color={cGreen} bg={cBg}>
         {/* Windshield */}
-        <div className="absolute bottom-2 w-[80%] h-[45%] left-[10%] border border-white bg-white/20" />
+        <div className="absolute bottom-2 w-[80%] h-[45%] left-[10%] border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
         {/* Headlights near ground (top) */}
-        <div className="absolute top-2 left-2 w-3 h-2 bg-white shadow-[0_0_10px_white] rounded-sm" />
-        <div className="absolute top-2 right-2 w-3 h-2 bg-white shadow-[0_0_10px_white] rounded-sm" />
-        <div className="absolute top-3 left-[30%] w-[40%] h-1 border border-[#00ff88]" />
+        <div className="absolute top-2 left-2 w-3 h-2 rounded-sm" style={{ backgroundColor: cWhite, boxShadow: `0 0 10px ${cWhite}` }} />
+        <div className="absolute top-2 right-2 w-3 h-2 rounded-sm" style={{ backgroundColor: cWhite, boxShadow: `0 0 10px ${cWhite}` }} />
+        <div className="absolute top-3 left-[30%] w-[40%] h-1 border" style={{ borderColor: cGreen }} />
       </Face>
 
       {/* Back Face (+Y) -> Floor is bottom, Roof is top */}
-      <Face w={w} h={h} transform={`translateY(${l / 2}px) rotateX(-90deg)`} color={cGreen}>
-        <div className="absolute top-2 w-[80%] h-[35%] left-[10%] border border-[#00ff88] bg-[#00ff88]/10" />
+      <Face w={w} h={h} transform={`translateY(${l / 2}px) rotateX(-90deg)`} color={cGreen} bg={cBg}>
+        <div className="absolute top-2 w-[80%] h-[35%] left-[10%] border" style={{ borderColor: cGreen, backgroundColor: bgGreen }} />
         <div className="absolute bottom-2 left-2 w-3 h-2 bg-red-500 shadow-[0_0_10px_red]" />
         <div className="absolute bottom-2 right-2 w-3 h-2 bg-red-500 shadow-[0_0_10px_red]" />
       </Face>
 
       {/* Left Face (-X) -> Roof is right, Floor is left */}
-      <Face w={h} h={l} transform={`translateX(${-w / 2}px) rotateY(-90deg)`} color={cGreen}>
+      <Face w={h} h={l} transform={`translateX(${-w / 2}px) rotateY(-90deg)`} color={cGreen} bg={cBg}>
         {/* Wheels */}
-        <div className="absolute left-[-2px] top-[15%] w-6 h-6 border-[1px] border-[#00ff88] rounded-full shadow-[0_0_4px_#00ff88] bg-black flex items-center justify-center translate-x-[-50%]">
-          <div className="w-2 h-2 border border-white rounded-full" />
+        <div className="absolute left-[-2px] top-[15%] w-6 h-6 border-[1px] rounded-full flex items-center justify-center translate-x-[-50%]" style={{ borderColor: cGreen, boxShadow: `0 0 4px ${cGreen}`, backgroundColor: cBg }}>
+          <div className="w-2 h-2 border rounded-full" style={{ borderColor: cWhite }} />
         </div>
-        <div className="absolute left-[-2px] bottom-[15%] w-6 h-6 border-[1px] border-[#00ff88] rounded-full shadow-[0_0_4px_#00ff88] bg-black flex items-center justify-center translate-x-[-50%]">
-          <div className="w-2 h-2 border border-white rounded-full" />
+        <div className="absolute left-[-2px] bottom-[15%] w-6 h-6 border-[1px] rounded-full flex items-center justify-center translate-x-[-50%]" style={{ borderColor: cGreen, boxShadow: `0 0 4px ${cGreen}`, backgroundColor: cBg }}>
+          <div className="w-2 h-2 border rounded-full" style={{ borderColor: cWhite }} />
         </div>
       </Face>
 
       {/* Right Face (+X) -> Roof is left, Floor is right */}
-      <Face w={h} h={l} transform={`translateX(${w / 2}px) rotateY(90deg)`} color={cGreen}>
+      <Face w={h} h={l} transform={`translateX(${w / 2}px) rotateY(90deg)`} color={cGreen} bg={cBg}>
         <div className="absolute left-2 w-[25%] h-[70%] top-[15%] flex flex-col gap-1.5">
-          <div className="flex-1 border border-white bg-white/20" />
-          <div className="flex-1 border border-white bg-white/20" />
-          <div className="flex-1 border border-white bg-white/20" />
-          <div className="flex-1 border border-white bg-white/20" />
+          <div className="flex-1 border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
+          <div className="flex-1 border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
+          <div className="flex-1 border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
+          <div className="flex-1 border" style={{ borderColor: cWhite, backgroundColor: bgWhite }} />
         </div>
         {/* Wheels */}
-        <div className="absolute right-[-2px] top-[15%] w-6 h-6 border-[1px] border-[#00ff88] rounded-full shadow-[0_0_4px_#00ff88] bg-black flex items-center justify-center translate-x-[50%]">
-          <div className="w-2 h-2 border border-white rounded-full" />
+        <div className="absolute right-[-2px] top-[15%] w-6 h-6 border-[1px] rounded-full flex items-center justify-center translate-x-[50%]" style={{ borderColor: cGreen, boxShadow: `0 0 4px ${cGreen}`, backgroundColor: cBg }}>
+          <div className="w-2 h-2 border rounded-full" style={{ borderColor: cWhite }} />
         </div>
-        <div className="absolute right-[-2px] bottom-[15%] w-6 h-6 border-[1px] border-[#00ff88] rounded-full shadow-[0_0_4px_#00ff88] bg-black flex items-center justify-center translate-x-[50%]">
-          <div className="w-2 h-2 border border-white rounded-full" />
+        <div className="absolute right-[-2px] bottom-[15%] w-6 h-6 border-[1px] rounded-full flex items-center justify-center translate-x-[50%]" style={{ borderColor: cGreen, boxShadow: `0 0 4px ${cGreen}`, backgroundColor: cBg }}>
+          <div className="w-2 h-2 border rounded-full" style={{ borderColor: cWhite }} />
         </div>
       </Face>
     </motion.div>
@@ -116,8 +121,9 @@ interface ParticleData {
   zPos: number
 }
 
-const Particles = () => {
+const Particles = ({ isLight }: { isLight: boolean }) => {
   const [particles, setParticles] = React.useState<ParticleData[]>([])
+  const cGreen = isLight ? "#00aa55" : "#00ff88"
 
   React.useEffect(() => {
     const generated = Array.from({ length: 15 }, (_, i) => ({
@@ -144,8 +150,8 @@ const Particles = () => {
               height: 20,
               marginLeft: -1,
               marginTop: -10,
-              backgroundColor: "#00ff88",
-              boxShadow: "0 0 10px #00ff88",
+              backgroundColor: cGreen,
+              boxShadow: `0 0 10px ${cGreen}`,
               transformStyle: "preserve-3d",
             }}
             initial={{ x: startX, y: 40, z: zPos, opacity: 1 }}
@@ -168,10 +174,16 @@ const Particles = () => {
  * Real CSS 3D transforms with moving world underneath.
  */
 export function BusVisual({ className }: BusVisualProps) {
+  const { theme } = useTheme()
+  const isLight = theme === "light"
+  const gridLines = isLight ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.15)"
+  const roadLines = isLight ? "rgba(0, 0, 0, 0.3)" : "#ffffff"
+
   return (
     <div
       className={cn(
-        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 bg-black overflow-hidden shadow-sm",
+        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 overflow-hidden shadow-sm",
+        isLight ? "bg-white" : "bg-black",
         className,
       )}
     >
@@ -207,8 +219,8 @@ export function BusVisual({ className }: BusVisualProps) {
               className="absolute inset-0"
               style={{
                 backgroundImage: `
-                  linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px)
+                  linear-gradient(${gridLines} 1px, transparent 1px),
+                  linear-gradient(90deg, ${gridLines} 1px, transparent 1px)
                 `,
                 backgroundSize: "60px 60px",
               }}
@@ -225,7 +237,7 @@ export function BusVisual({ className }: BusVisualProps) {
                   y1={0}
                   x2={-35}
                   y2={2000}
-                  stroke="#ffffff"
+                  stroke={roadLines}
                   strokeWidth="2"
                   strokeDasharray="40 40"
                   strokeOpacity="0.5"
@@ -242,7 +254,7 @@ export function BusVisual({ className }: BusVisualProps) {
                   y1={0}
                   x2={35}
                   y2={2000}
-                  stroke="#ffffff"
+                  stroke={roadLines}
                   strokeWidth="2"
                   strokeDasharray="40 40"
                   strokeOpacity="0.5"
@@ -258,21 +270,27 @@ export function BusVisual({ className }: BusVisualProps) {
             </svg>
           </div>
 
-          <Particles />
-          <Bus3D />
+          <Particles isLight={isLight} />
+          <Bus3D isLight={isLight} />
         </div>
       </div>
 
       {/* Screen Effects / Hologram Overlays */}
       <div
-        className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-20"
+        className={cn(
+          "absolute inset-0 pointer-events-none z-20 opacity-20",
+          isLight ? "mix-blend-multiply" : "mix-blend-screen"
+        )}
         style={{
           backgroundImage:
-            "linear-gradient(rgba(0, 255, 136, 0.5) 1px, transparent 1px)",
+            `linear-gradient(${isLight ? "rgba(0, 136, 68, 0.2)" : "rgba(0, 255, 136, 0.5)"} 1px, transparent 1px)`,
           backgroundSize: "100% 4px",
         }}
       />
-      <div className="absolute inset-0 pointer-events-none z-30 shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]" />
+      <div className={cn(
+        "absolute inset-0 pointer-events-none z-30",
+        isLight ? "shadow-[inset_0_0_60px_rgba(255,255,255,1)]" : "shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]"
+      )} />
     </div>
   )
 }

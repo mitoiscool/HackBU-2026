@@ -1,5 +1,6 @@
 import { motion } from "framer-motion"
 import { WashingMachine } from "lucide-react"
+import { getBuildingStub } from "@/lib/preferences"
 
 export function MachineGauge({
     label,
@@ -37,7 +38,8 @@ export function MachineGauge({
 }
 
 export function LaundryResult({ data }: { data: Record<string, unknown> }) {
-    const building = String(data.building ?? "Building")
+    const buildingToken = typeof data.building === "string" ? data.building : undefined
+    const building = getBuildingStub(buildingToken) ?? "Laundry Room"
     const washers = data.washers as { available: number; total: number } | undefined
     const dryers = data.dryers as { available: number; total: number } | undefined
 

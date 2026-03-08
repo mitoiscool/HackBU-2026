@@ -1,6 +1,13 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { streamText, convertToModelMessages, stepCountIs } from "ai"
 import { createMCPClient } from "@ai-sdk/mcp"
+import {
+    getBuildingLabel,
+    getDiningHallLabel,
+    normalizePreferences,
+    type NormalizedPreferences,
+    type PreferencesInput,
+} from "@/lib/preferences"
 
 const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -21,11 +28,63 @@ function logMCP(label: string, data?: unknown) {
     }
 }
 
+function buildPreferenceContext(preferences: NormalizedPreferences): string {
+    const buildingLabel = getBuildingLabel(preferences.building)
+    const diningHallLabel = getDiningHallLabel(preferences.preferredDiningHall)
+
+    if (!buildingLabel && !diningHallLabel) {
+        return ""
+    }
+
+    const lines = ["Student profile preferences:"]
+    if (buildingLabel && preferences.building) {
+        lines.push(`- Laundry room: ${buildingLabel} (${preferences.building}).`)
+    }
+    if (diningHallLabel && preferences.preferredDiningHall) {
+        lines.push(`- Preferred dining hall: ${diningHallLabel} (${preferences.preferredDiningHall}).`)
+    }
+    lines.push(
+        "Use this profile to personalize recommendations and to choose default laundry room or hall arguments when the user request does not specify one."
+    )
+
+    return lines.join("\n")
+}
+
+function buildSystemPrompt({
+    toolsOnline,
+    preferences,
+}: {
+    toolsOnline: boolean
+    preferences: NormalizedPreferences
+}): string {
+    const basePrompt =
+        "You are Baxter, a helpful campus assistant for Binghamton University students. " +
+        "Be concise and direct — students are on the go. " +
+        (toolsOnline
+            ? "You have access to live campus tools — use them to give real-time info."
+            : "Your campus tools are currently offline, so answer from general knowledge and let the student know the live data is unavailable.")
+
+    const preferenceContext = buildPreferenceContext(preferences)
+    if (!preferenceContext) {
+        return basePrompt
+    }
+
+    return `${basePrompt}\n\n${preferenceContext}`
+}
+
 export async function POST(req: Request) {
-    const { messages: uiMessages } = await req.json()
+    const { messages: uiMessages, preferences: rawPreferences } = await req.json()
+    const preferences = normalizePreferences(
+        rawPreferences && typeof rawPreferences === "object"
+            ? (rawPreferences as PreferencesInput)
+            : undefined
+    )
     const messages = await convertToModelMessages(uiMessages)
 
     logMCP("→ POST /api/chat", { messageCount: messages.length, mcpUrl: MCP_SERVER_URL })
+    if (preferences.building || preferences.preferredDiningHall) {
+        logMCP("User preferences", preferences)
+    }
     logMCP("Last user message", messages.at(-1))
 
     const connStart = Date.now()
@@ -41,10 +100,7 @@ export async function POST(req: Request) {
         logMCP(`MCP connection FAILED after ${Date.now() - connStart}ms — falling back to no-tools mode`, String(err))
         const result = streamText({
             model,
-            system:
-                "You are Baxter, a helpful campus assistant for Binghamton University students. " +
-                "Be concise and direct — students are on the go. " +
-                "Your campus tools are currently offline, so answer from general knowledge and let the student know the live data is unavailable.",
+            system: buildSystemPrompt({ toolsOnline: false, preferences }),
             messages,
         })
         return result.toUIMessageStreamResponse()
@@ -58,10 +114,7 @@ export async function POST(req: Request) {
     let stepNum = 0
     const result = streamText({
         model,
-        system:
-            "You are Baxter, a helpful campus assistant for Binghamton University students. " +
-            "Be concise and direct — students are on the go. " +
-            "You have access to live campus tools — use them to give real-time info.",
+        system: buildSystemPrompt({ toolsOnline: true, preferences }),
         messages,
         tools,
         stopWhen: stepCountIs(5),

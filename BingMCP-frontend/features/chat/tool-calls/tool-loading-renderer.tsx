@@ -9,7 +9,6 @@ type VisualModule = {
 
 interface ToolVisualMap {
     exportName: string
-    description: string
     load: () => Promise<VisualModule>
 }
 
@@ -17,39 +16,32 @@ interface ToolVisualMap {
 const VISUAL_MAP: Record<string, ToolVisualMap> = {
     get_bus_locations: {
         exportName: "BusVisual",
-        description: "Transit loading state that implies movement and ETA updates.",
         load: () => import("@/components/visuals/bus/BusVisual") as Promise<VisualModule>,
     },
     get_dining_status: {
         exportName: "DiningVisual",
-        description: "Neon overhead tray: center plate + food blob + top-right glass in strict holographic tones.",
         load: () => import("@/components/visuals/dining/DiningVisual") as Promise<VisualModule>,
     },
     get_dining_menu: {
         exportName: "DiningVisual",
-        description: "Neon overhead tray: center plate + food blob + top-right glass in strict holographic tones.",
         load: () => import("@/components/visuals/dining/DiningVisual") as Promise<VisualModule>,
     },
     get_gym_capacity: {
         exportName: "GymVisual",
-        description: "Workout capacity check state with energetic timing.",
         load: () => import("@/components/visuals/gym/GymVisual") as Promise<VisualModule>,
     },
     get_laundry_availability: {
         exportName: "LaundryVisual",
-        description: "Machine polling visual that resembles a washer drum.",
         load: () => import("@/components/visuals/laundry/LaundryVisual") as Promise<VisualModule>,
     },
     get_available_library_rooms: {
         exportName: "LibraryVisual",
-        description: "Study room availability check with scanline feedback.",
         load: () => import("@/components/visuals/library/LibraryVisual") as Promise<VisualModule>,
     },
 }
 
 const FALLBACK_VISUAL: ToolVisualMap = {
     exportName: "FallbackVisual",
-    description: "Safe default when a tool has no mapped visual yet.",
     load: () => import("@/components/visuals/shared/FallbackVisual") as Promise<VisualModule>,
 }
 
@@ -88,34 +80,27 @@ export function ToolLoadingRenderer({ toolName, isVisualUnique = true }: { toolN
     const ActiveVisual = resolvedVisual
 
     return (
-        <div className="flex flex-col gap-3">
-            <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
-                {ActiveVisual && isVisualUnique ? (
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
-                            animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
-                            exit={{ opacity: 0, clipPath: "inset(0 0 0 100%)" }}
-                            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                            className="w-full h-full"
-                        >
-                            <ActiveVisual />
-                        </motion.div>
-                    </AnimatePresence>
-                ) : (
-                    <div className="h-48 flex items-center justify-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                        {!isVisualUnique && (
-                            <span className="ml-3 text-sm text-muted-foreground">Running concurrent operation...</span>
-                        )}
-                    </div>
-                )}
-            </div>
-            <div className="px-1">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                    {mapping.description}
-                </p>
-            </div>
+        <div className="relative w-full overflow-hidden rounded-xl border border-border bg-black">
+            {ActiveVisual && isVisualUnique ? (
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        initial={{ opacity: 0, clipPath: "inset(0 100% 0 0)" }}
+                        animate={{ opacity: 1, clipPath: "inset(0 0% 0 0)" }}
+                        exit={{ opacity: 0, clipPath: "inset(0 0 0 100%)" }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                        className="w-full h-full"
+                    >
+                        <ActiveVisual />
+                    </motion.div>
+                </AnimatePresence>
+            ) : (
+                <div className="h-48 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    {!isVisualUnique && (
+                        <span className="ml-3 text-sm text-muted-foreground">Running concurrent operation...</span>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

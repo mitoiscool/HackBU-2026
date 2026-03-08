@@ -1,16 +1,31 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 
 interface LibraryVisualProps {
   className?: string
 }
 
-const Room = ({ side, z, open }: { side: "left" | "right", z: number, open: boolean }) => {
+const Room = ({ side, z, open, isLight }: { side: "left" | "right", z: number, open: boolean, isLight: boolean }) => {
   const x = side === "left" ? -100 : 100
   const rotY = side === "left" ? 90 : -90
-  const color = open ? "#10b981" : "#f59e0b" // Emerald vs Amber
+  
+  // Theme colors
+  const color = open 
+    ? (isLight ? "#059669" : "#10b981") // Emerald darker in light mode
+    : (isLight ? "#d97706" : "#f59e0b") // Amber darker in light mode
+    
+  const gridColor = isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.2)"
+  const deskColor = isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.05)"
+  const deskBorder = isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)"
+  const glassBg = isLight ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)"
+  const glassBorder = isLight ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.3)"
+  const highlightStart = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.1)"
+  const handleColor = isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.7)"
+  const shadowOpacity = isLight ? "20" : "30"
+  const roomBg = isLight ? `${color}15` : `${color}10`
   
   const isLeft = side === "left"
   const doorSwing = open ? (isLeft ? -75 : 75) : 0
@@ -33,8 +48,8 @@ const Room = ({ side, z, open }: { side: "left" | "right", z: number, open: bool
           marginLeft: -40, 
           marginTop: -60, 
           border: `2px solid ${color}`, 
-          backgroundColor: `${color}10`, 
-          boxShadow: `0 0 15px ${color}30, inset 0 0 15px ${color}30`,
+          backgroundColor: roomBg, 
+          boxShadow: `0 0 15px ${color}${shadowOpacity}, inset 0 0 15px ${color}${shadowOpacity}`,
           transformStyle: "preserve-3d"
         }}
       >
@@ -45,65 +60,87 @@ const Room = ({ side, z, open }: { side: "left" | "right", z: number, open: bool
             left: "50%",
             transform: "translateX(-50%)",
             backgroundColor: color,
-            boxShadow: `0 0 8px ${color}, 0 0 16px ${color}`
+            boxShadow: isLight ? `0 0 4px ${color}` : `0 0 8px ${color}, 0 0 16px ${color}`
           }}
         />
 
         {/* Desk/Seat */}
         {/* Interior Desk */}
         <div 
-          className="absolute bottom-[30%] w-24 h-6 border-t border-white/40"
+          className="absolute bottom-[30%] w-24 h-6 border-t"
           style={{
             left: "50%",
             transform: `translateX(-50%) translateZ(-70px)`,
-            backgroundColor: "rgba(255,255,255,0.05)"
+            backgroundColor: deskColor,
+            borderColor: deskBorder
           }}
         />
         {/* Desk leg */}
         <div 
-          className="absolute bottom-0 w-0.5 h-[30%] bg-white/40"
+          className="absolute bottom-0 w-0.5 h-[30%]"
           style={{
             left: "50%",
             transform: `translateX(-50%) translateZ(-70px)`,
+            backgroundColor: deskBorder
           }}
         />
 
         {/* Interior Seat */}
         <div 
-          className="absolute bottom-[15%] w-8 h-8 border-t border-white/30 rounded-full"
+          className="absolute bottom-[15%] w-8 h-8 border-t rounded-full"
           style={{
             left: "50%",
             transform: `translateX(-50%) translateZ(-30px) rotateX(70deg)`,
-            backgroundColor: "rgba(255,255,255,0.1)"
+            backgroundColor: isLight ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.1)",
+            borderColor: isLight ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)"
           }}
         />
         {/* Seat leg */}
         <div 
-          className="absolute bottom-0 w-1 h-[15%] bg-white/30"
+          className="absolute bottom-0 w-1 h-[15%]"
           style={{
             left: "50%",
             transform: `translateX(-50%) translateZ(-30px)`,
+            backgroundColor: isLight ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)"
           }}
         />
 
         {/* The Glass Door */}
         <div 
-          className="absolute top-0 w-full h-full border border-white/30 bg-black/40 backdrop-blur-[2px]"
+          className="absolute top-0 w-full h-full backdrop-blur-[2px]"
           style={{
             transformOrigin: origin,
             transform: `rotateY(${doorSwing}deg)`,
             transition: "transform 1s ease-in-out",
-            transformStyle: "preserve-3d"
+            transformStyle: "preserve-3d",
+            backgroundColor: glassBg,
+            border: `1px solid ${glassBorder}`
           }}
         >
           {/* Glass pane highlights */}
-          <div className="absolute top-[10%] left-[10%] w-[80%] h-[35%] border border-white/20 bg-gradient-to-br from-white/10 to-transparent" />
-          <div className="absolute top-[50%] left-[10%] w-[80%] h-[40%] border border-white/20 bg-gradient-to-br from-white/10 to-transparent" />
+          <div 
+            className="absolute top-[10%] left-[10%] w-[80%] h-[35%]" 
+            style={{ 
+              border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'}`,
+              background: `linear-gradient(to bottom right, ${highlightStart}, transparent)`
+            }} 
+          />
+          <div 
+            className="absolute top-[50%] left-[10%] w-[80%] h-[40%]" 
+            style={{ 
+              border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'}`,
+              background: `linear-gradient(to bottom right, ${highlightStart}, transparent)`
+            }} 
+          />
           
           {/* Handle */}
           <div 
-            className={`absolute top-[55%] ${isLeft ? 'right-[10%]' : 'left-[10%]'} w-1.5 h-10 bg-white/70 shadow-[0_0_8px_white/70] rounded-sm`} 
-            style={{ transform: "translateZ(5px)" }}
+            className={`absolute top-[55%] ${isLeft ? 'right-[10%]' : 'left-[10%]'} w-1.5 h-10 rounded-sm`} 
+            style={{ 
+              transform: "translateZ(5px)",
+              backgroundColor: handleColor,
+              boxShadow: isLight ? "none" : `0 0 8px ${handleColor}`
+            }}
           />
         </div>
       </div>
@@ -111,15 +148,18 @@ const Room = ({ side, z, open }: { side: "left" | "right", z: number, open: bool
   )
 }
 
-const Scanline = () => (
+const Scanline = ({ isLight }: { isLight: boolean }) => (
   <motion.div
-    className="absolute left-0 top-0 w-full h-4 bg-white/20 blur-[2px] z-50 pointer-events-none mix-blend-overlay"
+    className="absolute left-0 top-0 w-full h-4 blur-[2px] z-50 pointer-events-none mix-blend-overlay"
+    style={{ backgroundColor: isLight ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.2)" }}
     animate={{ top: ["-10%", "110%"] }}
     transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
   />
 )
 
 export function LibraryVisual({ className }: LibraryVisualProps) {
+  const { theme } = useTheme()
+  const isLight = theme === "light"
   // A long repeating segment of rooms for the loop
   const roomPattern = [
     { side: "left", zOffset: 0, open: true },
@@ -144,11 +184,12 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
   return (
     <div
       className={cn(
-        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 bg-black overflow-hidden shadow-sm",
+        "relative w-full max-w-sm aspect-[16/9] rounded-2xl overflow-hidden shadow-sm transition-colors duration-300",
+        isLight ? "bg-slate-100 border-border/70" : "bg-black border-tool-call-border/70",
         className,
       )}
     >
-      <Scanline />
+      <Scanline isLight={isLight} />
       
       {/* 3D Scene Container */}
       <div
@@ -179,14 +220,14 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
                   width: 400, height: 2800,
                   left: -200, top: -1400,
                   transform: "translateY(60px) rotateX(90deg)",
-                  borderLeft: "2px solid rgba(255,255,255,0.4)",
-                  borderRight: "2px solid rgba(255,255,255,0.4)",
+                  borderLeft: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
+                  borderRight: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
                   background: `
-                    linear-gradient(0deg, rgba(255,255,255,0.1) 1px, transparent 1px), 
-                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+                    linear-gradient(0deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px), 
+                    linear-gradient(90deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px)
                   `,
                   backgroundSize: "40px 40px",
-                  boxShadow: "inset 0 0 100px rgba(0,0,0,0.8)"
+                  boxShadow: isLight ? "inset 0 0 100px rgba(255,255,255,0.5)" : "inset 0 0 100px rgba(0,0,0,0.8)"
                 }} 
               />
               
@@ -197,14 +238,14 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
                   width: 400, height: 2800,
                   left: -200, top: -1400,
                   transform: "translateY(-60px) rotateX(90deg)",
-                  borderLeft: "2px solid rgba(255,255,255,0.4)",
-                  borderRight: "2px solid rgba(255,255,255,0.4)",
+                  borderLeft: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
+                  borderRight: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
                   background: `
-                    linear-gradient(0deg, rgba(255,255,255,0.1) 1px, transparent 1px), 
-                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+                    linear-gradient(0deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px), 
+                    linear-gradient(90deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px)
                   `,
                   backgroundSize: "40px 40px",
-                  boxShadow: "inset 0 0 100px rgba(0,0,0,0.8)"
+                  boxShadow: isLight ? "inset 0 0 100px rgba(255,255,255,0.5)" : "inset 0 0 100px rgba(0,0,0,0.8)"
                 }} 
               />
 
@@ -215,11 +256,11 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
                   width: 2800, height: 120,
                   left: -1400, top: -60,
                   transform: "translateZ(-1400px) rotateY(90deg) translateZ(200px)",
-                  borderTop: "2px solid rgba(255,255,255,0.4)",
-                  borderBottom: "2px solid rgba(255,255,255,0.4)",
+                  borderTop: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
+                  borderBottom: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
                   background: `
-                    linear-gradient(0deg, rgba(255,255,255,0.1) 1px, transparent 1px), 
-                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+                    linear-gradient(0deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px), 
+                    linear-gradient(90deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px)
                   `,
                   backgroundSize: "40px 40px",
                 }} 
@@ -232,11 +273,11 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
                   width: 2800, height: 120,
                   left: -1400, top: -60,
                   transform: "translateZ(-1400px) rotateY(-90deg) translateZ(200px)",
-                  borderTop: "2px solid rgba(255,255,255,0.4)",
-                  borderBottom: "2px solid rgba(255,255,255,0.4)",
+                  borderTop: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
+                  borderBottom: `2px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'}`,
                   background: `
-                    linear-gradient(0deg, rgba(255,255,255,0.1) 1px, transparent 1px), 
-                    linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+                    linear-gradient(0deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px), 
+                    linear-gradient(90deg, ${isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.1)'} 1px, transparent 1px)
                   `,
                   backgroundSize: "40px 40px",
                 }} 
@@ -244,7 +285,7 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
 
               {/* Rooms */}
               {rooms.map((r, i) => (
-                <Room key={i} side={r.side} z={r.z} open={r.open} />
+                <Room key={i} side={r.side} z={r.z} open={r.open} isLight={isLight} />
               ))}
 
               {/* Hallway Fade Out (Fog effect at the end) - stationary relative to view */}
@@ -259,7 +300,9 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
               marginLeft: -400,
               marginTop: -400,
               transform: "translateZ(-800px)",
-              background: "radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 50%)",
+              background: isLight 
+                ? "radial-gradient(circle, rgba(241,245,249,0) 0%, rgba(241,245,249,1) 50%)" 
+                : "radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 50%)",
               transformStyle: "preserve-3d"
             }}
           />
@@ -270,11 +313,16 @@ export function LibraryVisual({ className }: LibraryVisualProps) {
       <div
         className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-10"
         style={{
-          backgroundImage: "linear-gradient(rgba(245, 158, 11, 0.5) 1px, transparent 1px)",
+          backgroundImage: `linear-gradient(${isLight ? 'rgba(0, 0, 0, 0.5)' : 'rgba(245, 158, 11, 0.5)'} 1px, transparent 1px)`,
           backgroundSize: "100% 4px",
         }}
       />
-      <div className="absolute inset-0 pointer-events-none z-30 shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]" />
+      <div 
+        className="absolute inset-0 pointer-events-none z-30 transition-shadow duration-300"
+        style={{
+          boxShadow: isLight ? "inset 0 0 60px rgba(0,0,0,0.1)" : "inset 0 0 60px rgba(0,0,0,0.9)"
+        }}
+      />
     </div>
   )
 }

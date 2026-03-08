@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useTheme } from "next-themes"
-import { Timer, Bus, MoonStar, Wallet, Paperclip, ArrowUp, User, Bot, Settings2 } from "lucide-react"
+import { Timer, Bus, MoonStar, Utensils, Paperclip, ArrowUp, User, Bot, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,31 +19,34 @@ import { MarkdownMessage } from "@/components/ui/markdown-message"
 import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
 import { StatPanel, type StatEntry } from "@/features/chat/stat-panel/StatPanel"
+import {
+  BUILDING_OPTIONS,
+  DINING_HALL_OPTIONS,
+  normalizePreferences,
+  type BuildingPreference,
+  type DiningHallPreference,
+} from "@/lib/preferences"
 
 const SCENARIOS: Scenario[] = [
   {
     icon: <Timer className="h-4 w-4" />,
     title: "Optimize My Gap",
     prompt: "I have 90 minutes before class at Bartle. Are there open washers in Digman, and is the East Gym empty enough for a quick workout? Which bus is fastest?",
-    badges: ["Laundry API", "BingGym", "OCCT Transit"],
   },
   {
     icon: <Bus className="h-4 w-4" />,
     title: "The Commuter Pivot",
     prompt: "I'm on the Route 14 outbound. Based on the current bus location and East Gym capacity, should I go lift right now or just head straight to my dorm?",
-    badges: ["OCCT Transit", "BingGym"],
   },
   {
     icon: <MoonStar className="h-4 w-4" />,
     title: "Late Night Grind",
     prompt: "It's 10:30 PM. Find me an empty study room in the UDC. Also, is there any dining hall or late-night food still open on campus?",
-    badges: ["LibCal API", "Sodexo API"],
   },
   {
-    icon: <Wallet className="h-4 w-4" />,
-    title: "Transit vs. Wallet",
-    prompt: "The outbound bus is heavily delayed. Check my daily entertainment budget and tell me if I can afford to just split an Uber downtown with two friends instead.",
-    badges: ["OCCT Transit", "Visions Mock API"],
+    icon: <Utensils className="h-4 w-4" />,
+    title: "Post-Workout Meal",
+    prompt: "I'm finishing up at the East Gym. Is Hinman Dining Hall open right now, and what's the next bus I can catch to get there?",
   },
 ]
 
@@ -73,6 +76,10 @@ const assistantMessageVariants = {
 type SettingsPopoverProps = {
   baxterEnabled: boolean
   onBaxterChange: (enabled: boolean) => void
+  homeBuilding: BuildingPreference | ""
+  onHomeBuildingChange: (building: BuildingPreference | "") => void
+  preferredDiningHall: DiningHallPreference | ""
+  onPreferredDiningHallChange: (hall: DiningHallPreference | "") => void
   displayName: string
   onDisplayNameChange: (name: string) => void
 }
@@ -80,11 +87,17 @@ type SettingsPopoverProps = {
 function SettingsPopover({
   baxterEnabled,
   onBaxterChange,
+  homeBuilding,
+  onHomeBuildingChange,
+  preferredDiningHall,
+  onPreferredDiningHallChange,
   displayName,
   onDisplayNameChange,
 }: SettingsPopoverProps) {
   const { theme, setTheme } = useTheme()
   const activeTheme = theme === "light" ? "light" : "dark"
+  const selectClassName =
+    "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
 
   return (
     <DropdownMenu>
@@ -138,6 +151,40 @@ function SettingsPopover({
           </div>
 
           <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Laundry Room</DropdownMenuLabel>
+            <select
+              value={homeBuilding}
+              onChange={(event) => onHomeBuildingChange(event.target.value as BuildingPreference | "")}
+              onKeyDown={(event) => event.stopPropagation()}
+              className={selectClassName}
+            >
+              <option value="">Select your laundry room</option>
+              {BUILDING_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <DropdownMenuLabel className="px-0 py-0">Preferred Dining Hall</DropdownMenuLabel>
+            <select
+              value={preferredDiningHall}
+              onChange={(event) => onPreferredDiningHallChange(event.target.value as DiningHallPreference | "")}
+              onKeyDown={(event) => event.stopPropagation()}
+              className={selectClassName}
+            >
+              <option value="">Select dining hall</option>
+              {DINING_HALL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <DropdownMenuLabel className="px-0 py-0">Name</DropdownMenuLabel>
             <Input
               value={displayName}
@@ -158,6 +205,8 @@ export default function ChatWindow() {
   const [input, setInput] = useState("")
   const [isTestModeEnabled, setIsTestModeEnabled] = useState(false)
   const [baxterEnabled, setBaxterEnabled] = useState(false)
+  const [homeBuilding, setHomeBuilding] = useState<BuildingPreference | "">("")
+  const [preferredDiningHall, setPreferredDiningHall] = useState<DiningHallPreference | "">("")
   const [displayName, setDisplayName] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -191,6 +240,7 @@ export default function ChatWindow() {
         if (!result || (result as Record<string, unknown>).status === "unavailable") continue
 
         if (!statTimestampsRef.current.has(toolName)) {
+          // eslint-disable-next-line react-hooks/purity -- Capture first-seen timestamp per tool for relative freshness display.
           statTimestampsRef.current.set(toolName, Date.now())
         }
 
@@ -240,6 +290,17 @@ export default function ChatWindow() {
         if (typeof storedName === "string") {
           setDisplayName(storedName.trim())
         }
+
+        const normalized = normalizePreferences({
+          building: window.localStorage.getItem("building") ?? undefined,
+          preferredDiningHall: window.localStorage.getItem("preferredDiningHall") ?? undefined,
+        })
+        if (normalized.building) {
+          setHomeBuilding(normalized.building)
+        }
+        if (normalized.preferredDiningHall) {
+          setPreferredDiningHall(normalized.preferredDiningHall)
+        }
       } catch {
         // Ignore localStorage access errors.
       }
@@ -254,6 +315,32 @@ export default function ChatWindow() {
     setBaxterEnabled(enabled)
     try {
       window.localStorage.setItem("baxter", String(enabled))
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
+  const handleHomeBuildingChange = (building: BuildingPreference | "") => {
+    setHomeBuilding(building)
+    try {
+      if (building) {
+        window.localStorage.setItem("building", building)
+      } else {
+        window.localStorage.removeItem("building")
+      }
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
+  const handlePreferredDiningHallChange = (hall: DiningHallPreference | "") => {
+    setPreferredDiningHall(hall)
+    try {
+      if (hall) {
+        window.localStorage.setItem("preferredDiningHall", hall)
+      } else {
+        window.localStorage.removeItem("preferredDiningHall")
+      }
     } catch {
       // Ignore localStorage access errors.
     }
@@ -276,7 +363,17 @@ export default function ChatWindow() {
   const submit = () => {
     const text = input.trim()
     if (!text || isStreaming) return
-    sendMessage({ parts: [{ type: "text", text }] })
+    const preferences = normalizePreferences({
+      building: homeBuilding || undefined,
+      preferredDiningHall: preferredDiningHall || undefined,
+    })
+
+    sendMessage(
+      { parts: [{ type: "text", text }] },
+      {
+        body: { preferences },
+      }
+    )
     setInput("")
   }
 
@@ -311,6 +408,10 @@ export default function ChatWindow() {
         <SettingsPopover
           baxterEnabled={baxterEnabled}
           onBaxterChange={handleBaxterChange}
+          homeBuilding={homeBuilding}
+          onHomeBuildingChange={handleHomeBuildingChange}
+          preferredDiningHall={preferredDiningHall}
+          onPreferredDiningHallChange={handlePreferredDiningHallChange}
           displayName={displayName}
           onDisplayNameChange={handleDisplayNameChange}
         />

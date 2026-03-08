@@ -4,8 +4,8 @@ import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import bearcatsImg from "@/lib/images/bearcats.png"
-
-import React from "react"
+import { useTheme } from "next-themes"
+import React, { useEffect, useState } from "react"
 
 interface GymVisualProps {
   className?: string
@@ -21,7 +21,7 @@ interface FaceProps {
 }
 
 // 3D Face Component to build wireframe shapes
-const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: FaceProps) => (
+const Face = ({ w, h, transform, color, bg, children }: FaceProps) => (
   <div
     className="absolute border overflow-hidden"
     style={{
@@ -29,8 +29,8 @@ const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", children }: Face
       height: h,
       left: "50%",
       top: "50%",
-      marginLeft: -w / 2,
-      marginTop: -h / 2,
+      marginLeft: -Number(w) / 2,
+      marginTop: -Number(h) / 2,
       transform,
       borderColor: color,
       backgroundColor: bg,
@@ -46,20 +46,32 @@ interface Treadmill3DProps {
   xOffset: number
   yOffset: number
   taken: boolean
+  isLight: boolean
 }
 
-const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
+const Treadmill3D = ({ xOffset, yOffset, taken, isLight }: Treadmill3DProps) => {
   const tWidth = 30
   const tLength = 80
   const tHeight = 4
   const consoleHeight = 36
-  const cGreen = taken ? "#00ff88" : "#004422"
-  const cBlue = taken ? "#00aaff" : "#003355"
+  
+  // Adjust colors for light mode
+  const cGreen = taken ? (isLight ? "#00aa55" : "#00ff88") : (isLight ? "#aaddbb" : "#004422")
+  const cBlue = taken ? (isLight ? "#0066cc" : "#00aaff") : (isLight ? "#aaccee" : "#003355")
+  
+  const defaultFaceBg = isLight ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.8)"
+  const beltBg = taken ? (isLight ? "rgba(0,170,85,0.15)" : "rgba(0,255,136,0.05)") : (isLight ? "rgba(170,221,187,0.15)" : "rgba(0,68,34,0.05)")
+  const screenBg = taken ? (isLight ? "rgba(0,102,204,0.15)" : "rgba(0,170,255,0.1)") : (isLight ? "rgba(170,204,238,0.15)" : "rgba(0,51,85,0.1)")
+
+  const stickmanStroke = isLight ? "black" : "white"
+  const stickmanFill = isLight ? "white" : "black"
+  const stickmanShadow = isLight ? "0 0 12px rgba(0,0,0,0.3)" : "0 0 12px white"
+  const limbShadow = isLight ? "0 0 10px rgba(0,0,0,0.3)" : "0 0 10px white"
 
   return (
     <div
       className="absolute w-0 h-0 flex items-center justify-center"
-      style={{
+      style={{ 
         transformStyle: "preserve-3d",
         left: "50%",
         top: "50%",
@@ -68,7 +80,7 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
     >
       {/* --- Treadmill Base --- */}
       {/* Top Face (The Belt) */}
-      <Face w={tWidth} h={tLength} transform={`translateZ(${tHeight / 2}px)`} color={cGreen} bg={taken ? "rgba(0,255,136,0.05)" : "rgba(0,68,34,0.05)"}>
+      <Face w={tWidth} h={tLength} transform={`translateZ(${tHeight / 2}px)`} color={cGreen} bg={beltBg}>
         <motion.div
           className="absolute inset-0"
           style={{
@@ -81,31 +93,33 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
       </Face>
 
       {/* Side Faces of the base */}
-      <Face w={tHeight} h={tLength} transform={`translateX(${-tWidth / 2}px) rotateY(-90deg)`} color={cGreen} />
-      <Face w={tHeight} h={tLength} transform={`translateX(${tWidth / 2}px) rotateY(90deg)`} color={cGreen} />
-      <Face w={tWidth} h={tHeight} transform={`translateY(${-tLength / 2}px) rotateX(90deg)`} color={cGreen} />
-      <Face w={tWidth} h={tHeight} transform={`translateY(${tLength / 2}px) rotateX(-90deg)`} color={cGreen} />
+      <Face w={tHeight} h={tLength} transform={`translateX(${-tWidth / 2}px) rotateY(-90deg)`} color={cGreen} bg={defaultFaceBg} />
+      <Face w={tHeight} h={tLength} transform={`translateX(${tWidth / 2}px) rotateY(90deg)`} color={cGreen} bg={defaultFaceBg} />
+      <Face w={tWidth} h={tHeight} transform={`translateY(${-tLength / 2}px) rotateX(90deg)`} color={cGreen} bg={defaultFaceBg} />
+      <Face w={tWidth} h={tHeight} transform={`translateY(${tLength / 2}px) rotateX(-90deg)`} color={cGreen} bg={defaultFaceBg} />
 
       {/* --- Front Console/Screen --- */}
       {/* Left Post */}
-      <Face w={2} h={consoleHeight} transform={`translate3d(${-tWidth / 2 + 1}px, ${-tLength / 2 + 2}px, ${consoleHeight / 2}px) rotateX(90deg)`} color={cBlue} />
+      <Face w={2} h={consoleHeight} transform={`translate3d(${-tWidth / 2 + 1}px, ${-tLength / 2 + 2}px, ${consoleHeight / 2}px) rotateX(90deg)`} color={cBlue} bg={defaultFaceBg} />
       {/* Right Post */}
-      <Face w={2} h={consoleHeight} transform={`translate3d(${tWidth / 2 - 1}px, ${-tLength / 2 + 2}px, ${consoleHeight / 2}px) rotateX(90deg)`} color={cBlue} />
-
+      <Face w={2} h={consoleHeight} transform={`translate3d(${tWidth / 2 - 1}px, ${-tLength / 2 + 2}px, ${consoleHeight / 2}px) rotateX(90deg)`} color={cBlue} bg={defaultFaceBg} />
+      
       {/* The Screen Panel */}
-      <Face w={tWidth} h={16} transform={`translate3d(0px, ${-tLength / 2 + 2}px, ${consoleHeight}px) rotateX(45deg)`} color={cBlue} bg={taken ? "rgba(0,170,255,0.1)" : "rgba(0,51,85,0.1)"}>
+      <Face w={tWidth} h={16} transform={`translate3d(0px, ${-tLength / 2 + 2}px, ${consoleHeight}px) rotateX(45deg)`} color={cBlue} bg={screenBg}>
         {/* Animated UI bars on the screen */}
         {taken && (
           <div className="absolute inset-2 flex flex-col justify-between">
-            <motion.div
-              className="h-1 bg-[#00ff88]"
-              animate={{ width: ["20%", "80%", "40%"] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            <motion.div 
+              className="h-1" 
+              style={{ backgroundColor: cGreen }}
+              animate={{ width: ["20%", "80%", "40%"] }} 
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }} 
             />
-            <motion.div
-              className="h-1 bg-[#00aaff]"
-              animate={{ width: ["60%", "30%", "90%"] }}
-              transition={{ repeat: Infinity, duration: 2.1, ease: "easeInOut" }}
+            <motion.div 
+              className="h-1" 
+              style={{ backgroundColor: cBlue }}
+              animate={{ width: ["60%", "30%", "90%"] }} 
+              transition={{ repeat: Infinity, duration: 2.1, ease: "easeInOut" }} 
             />
           </div>
         )}
@@ -121,38 +135,68 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
         >
           <div style={{ transform: "rotateX(-90deg) rotateY(20deg)", position: "absolute" }}>
             {/* Original Head */}
-            <div className="absolute left-[-10px] top-[-60px] w-[20px] h-[20px] rounded-full border-2 border-white bg-black shadow-[0_0_12px_white]" />
-
+            <div 
+              className="absolute left-[-10px] top-[-60px] w-[20px] h-[20px] rounded-full border-2"
+              style={{ borderColor: stickmanStroke, backgroundColor: stickmanFill, boxShadow: stickmanShadow }}
+            />
+            
             {/* Bearcat Face Overlay */}
             <div className="absolute left-[-20px] top-[-70px] w-[40px] h-[40px] flex items-center justify-center pointer-events-none z-10">
               <Image src={bearcatsImg} alt="Bearcat" className="w-full h-full object-contain" />
             </div>
-
+            
             {/* Torso */}
-            <div className="absolute left-[-1.5px] top-[-40px] w-[3px] h-[35px] bg-white shadow-[0_0_12px_white]" />
-
+            <div 
+              className="absolute left-[-1.5px] top-[-40px] w-[3px] h-[35px]"
+              style={{ backgroundColor: stickmanStroke, boxShadow: stickmanShadow }}
+            />
+            
             {/* Left Arm */}
-            <div className="absolute left-[-1.5px] top-[-35px] w-[3px] h-[18px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(25deg)", transformOrigin: "top center" }}>
+            <div 
+              className="absolute left-[-1.5px] top-[-35px] w-[3px] h-[18px]" 
+              style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(25deg)", transformOrigin: "top center" }}
+            >
               {/* Lower Arm */}
-              <div className="absolute left-0 top-[16px] w-[3px] h-[18px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(-50deg)", transformOrigin: "top center" }} />
+              <div 
+                className="absolute left-0 top-[16px] w-[3px] h-[18px]" 
+                style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(-50deg)", transformOrigin: "top center" }} 
+              />
             </div>
 
             {/* Right Arm */}
-            <div className="absolute left-[-1.5px] top-[-35px] w-[3px] h-[18px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(-25deg)", transformOrigin: "top center" }}>
+            <div 
+              className="absolute left-[-1.5px] top-[-35px] w-[3px] h-[18px]" 
+              style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(-25deg)", transformOrigin: "top center" }}
+            >
               {/* Lower Arm */}
-              <div className="absolute left-0 top-[16px] w-[3px] h-[18px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(50deg)", transformOrigin: "top center" }} />
+              <div 
+                className="absolute left-0 top-[16px] w-[3px] h-[18px]" 
+                style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(50deg)", transformOrigin: "top center" }} 
+              />
             </div>
 
             {/* Left Leg */}
-            <div className="absolute left-[-1.5px] top-[-6px] w-[3px] h-[22px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(20deg)", transformOrigin: "top center" }}>
+            <div 
+              className="absolute left-[-1.5px] top-[-6px] w-[3px] h-[22px]" 
+              style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(20deg)", transformOrigin: "top center" }}
+            >
               {/* Calf */}
-              <div className="absolute left-0 top-[20px] w-[3px] h-[22px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(-10deg)", transformOrigin: "top center" }} />
+              <div 
+                className="absolute left-0 top-[20px] w-[3px] h-[22px]" 
+                style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(-10deg)", transformOrigin: "top center" }} 
+              />
             </div>
 
             {/* Right Leg */}
-            <div className="absolute left-[-1.5px] top-[-6px] w-[3px] h-[22px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(-20deg)", transformOrigin: "top center" }}>
+            <div 
+              className="absolute left-[-1.5px] top-[-6px] w-[3px] h-[22px]" 
+              style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(-20deg)", transformOrigin: "top center" }}
+            >
               {/* Calf */}
-              <div className="absolute left-0 top-[20px] w-[3px] h-[22px] bg-white shadow-[0_0_10px_white]" style={{ transform: "rotate(10deg)", transformOrigin: "top center" }} />
+              <div 
+                className="absolute left-0 top-[20px] w-[3px] h-[22px]" 
+                style={{ backgroundColor: stickmanStroke, boxShadow: limbShadow, transform: "rotate(10deg)", transformOrigin: "top center" }} 
+              />
             </div>
           </div>
         </motion.div>
@@ -163,10 +207,25 @@ const Treadmill3D = ({ xOffset, yOffset, taken }: Treadmill3DProps) => {
 }
 
 export function GymVisual({ className }: GymVisualProps) {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  
+  const isLight = mounted && resolvedTheme === "light"
+  
+  const bgColor = isLight ? "bg-slate-100" : "bg-black"
+  const gridLineColor = isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.15)"
+  const screenScanline = isLight ? "rgba(0, 204, 102, 0.2)" : "rgba(0, 255, 136, 0.5)"
+  const shadowOverlay = isLight ? "shadow-[inset_0_0_60px_rgba(255,255,255,0.8)]" : "shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]"
+  
   return (
     <div
       className={cn(
-        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 bg-black overflow-hidden shadow-sm",
+        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 overflow-hidden shadow-sm transition-colors duration-300",
+        bgColor,
         className,
       )}
     >
@@ -193,41 +252,45 @@ export function GymVisual({ className }: GymVisualProps) {
               marginTop: -500,
               transform: "translateZ(0px)",
               maskImage:
-                "radial-gradient(circle at center, white 10%, transparent 50%)",
+                isLight 
+                  ? "radial-gradient(circle at center, black 10%, transparent 50%)"
+                  : "radial-gradient(circle at center, white 10%, transparent 50%)",
               WebkitMaskImage:
-                "radial-gradient(circle at center, white 10%, transparent 50%)",
+                isLight
+                  ? "radial-gradient(circle at center, black 10%, transparent 50%)"
+                  : "radial-gradient(circle at center, white 10%, transparent 50%)",
             }}
           >
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 transition-colors duration-300"
               style={{
                 backgroundImage: `
-                  linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px)
+                  linear-gradient(${gridLineColor} 1px, transparent 1px),
+                  linear-gradient(90deg, ${gridLineColor} 1px, transparent 1px)
                 `,
                 backgroundSize: "40px 40px",
               }}
             />
           </div>
 
-          <Treadmill3D xOffset={-120} yOffset={0} taken={true} />
-          <Treadmill3D xOffset={-60} yOffset={0} taken={false} />
-          <Treadmill3D xOffset={0} yOffset={0} taken={true} />
-          <Treadmill3D xOffset={60} yOffset={0} taken={false} />
-          <Treadmill3D xOffset={120} yOffset={0} taken={true} />
+          <Treadmill3D xOffset={-90} yOffset={60} taken={true} isLight={isLight} />
+          <Treadmill3D xOffset={-45} yOffset={60} taken={false} isLight={isLight} />
+          <Treadmill3D xOffset={0} yOffset={60} taken={true} isLight={isLight} />
+          <Treadmill3D xOffset={45} yOffset={60} taken={false} isLight={isLight} />
+          <Treadmill3D xOffset={90} yOffset={60} taken={true} isLight={isLight} />
         </div>
       </div>
 
       {/* Screen Effects / Hologram Overlays */}
       <div
-        className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-20"
+        className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-20 transition-colors duration-300"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(0, 255, 136, 0.5) 1px, transparent 1px)",
+            `linear-gradient(${screenScanline} 1px, transparent 1px)`,
           backgroundSize: "100% 4px",
         }}
       />
-      <div className="absolute inset-0 pointer-events-none z-30 shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]" />
+      <div className={cn("absolute inset-0 pointer-events-none z-30 transition-shadow duration-300", shadowOverlay)} />
     </div>
   )
 }

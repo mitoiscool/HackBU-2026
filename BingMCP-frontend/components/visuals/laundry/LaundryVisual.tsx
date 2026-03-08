@@ -2,6 +2,7 @@
 
 import React from "react"
 import { motion } from "framer-motion"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 
 interface LaundryVisualProps {
@@ -41,18 +42,23 @@ const Face = ({ w, h, transform, color, bg = "rgba(0,0,0,0.8)", shadow, children
   </div>
 )
 
-const Washer3D = ({ x, y, rotationZ = 0, isOn }: { x: number; y: number; rotationZ?: number; isOn: boolean }) => {
+const Washer3D = ({ x, y, rotationZ = 0, isOn, isLight }: { x: number; y: number; rotationZ?: number; isOn: boolean; isLight: boolean }) => {
   const w = 24
   const l = 24
   const h = 32
-  const cGreen = "#00ff88"
-  const cWhite = "#ffffff"
-  const cBlue = "#00aaff"
+  
+  const cGreen = isLight ? "#059669" : "#00ff88"
+  const cWhite = isLight ? "#475569" : "#ffffff"
+  const cBlue = isLight ? "#2563eb" : "#00aaff"
 
-  // Glowing green when OFF, white when ON
+  // Glowing green when OFF, white/dark when ON
   const color = isOn ? cWhite : cGreen
-  const bg = isOn ? "rgba(255,255,255,0.1)" : "rgba(0,255,136,0.05)"
-  const shadow = isOn ? `0 0 10px ${cWhite}40, inset 0 0 10px ${cWhite}40` : `0 0 10px ${cGreen}40, inset 0 0 10px ${cGreen}40`
+  const bg = isOn 
+    ? (isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.1)") 
+    : (isLight ? "rgba(5,150,105,0.05)" : "rgba(0,255,136,0.05)")
+  const shadow = isOn 
+    ? `0 0 10px ${cWhite}40, inset 0 0 10px ${cWhite}40` 
+    : `0 0 10px ${cGreen}40, inset 0 0 10px ${cGreen}40`
 
   const [shakeDuration] = React.useState(() => 0.1 + Math.random() * 0.1)
   const [spinDuration] = React.useState(() => 0.6 + Math.random() * 0.4)
@@ -137,41 +143,16 @@ const Washer3D = ({ x, y, rotationZ = 0, isOn }: { x: number; y: number; rotatio
   )
 }
 
-const Basket3D = ({ x, y, rotationZ = 0 }: { x: number; y: number; rotationZ?: number }) => {
-  const w = 18
-  const l = 24
-  const h = 12
-  const cColor = "rgba(255, 255, 255, 0.4)"
-
-  return (
-    <div
-      className="absolute w-0 h-0 flex items-center justify-center"
-      style={{
-        transformStyle: "preserve-3d",
-        left: "50%",
-        top: "50%",
-        transform: `translate3d(${x}px, ${y}px, 0px) rotateZ(${rotationZ}deg)`
-      }}
-    >
-      <div className="absolute w-0 h-0" style={{ transformStyle: "preserve-3d", transform: `translateZ(${h / 2}px)` }}>
-        {/* Top (Open) */}
-        <Face w={w} h={l} transform={`translateZ(${h / 2}px)`} color={cColor} bg="rgba(0,0,0,0)" shadow="none">
-          <div className="absolute top-1 left-1 w-10 h-10 bg-[#00aaff] opacity-30 blur-[2px] rounded-full" />
-          <div className="absolute bottom-1 right-1 w-8 h-10 bg-[#00ff88] opacity-30 blur-[2px] rounded-full" />
-        </Face>
-        <Face w={w} h={l} transform={`translateZ(${-h / 2}px)`} color={cColor} />
-        <Face w={w} h={h} transform={`translateY(${-l / 2}px) rotateX(90deg)`} color={cColor} />
-        <Face w={w} h={h} transform={`translateY(${l / 2}px) rotateX(-90deg)`} color={cColor} />
-        <Face w={l} h={h} transform={`translateX(${-w / 2}px) rotateY(-90deg)`} color={cColor} />
-        <Face w={l} h={h} transform={`translateX(${w / 2}px) rotateY(90deg)`} color={cColor} />
-      </div>
-    </div>
-  )
-}
-
 export function LaundryVisual({ className, taken = 3, free = 3 }: LaundryVisualProps) {
+  const { theme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isLight = mounted && theme === "light"
   const total = taken + free;
-  // Increase spacing a bit so they aren't cramped, and center them.
   const spacing = 32;
   const startX = -((total - 1) * spacing) / 2;
 
@@ -184,7 +165,6 @@ export function LaundryVisual({ className, taken = 3, free = 3 }: LaundryVisualP
       x: startX + i * spacing,
       y: -40,
       rotationZ: 0,
-      // The first 'taken' machines will be ON
       isOn: i < taken,
     });
 
@@ -194,7 +174,6 @@ export function LaundryVisual({ className, taken = 3, free = 3 }: LaundryVisualP
       x: startX + i * spacing,
       y: 40,
       rotationZ: 180,
-      // For variety, let the dryers fill up from the opposite end
       isOn: (total - 1 - i) < taken,
     });
   }
@@ -202,7 +181,8 @@ export function LaundryVisual({ className, taken = 3, free = 3 }: LaundryVisualP
   return (
     <div
       className={cn(
-        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border border-tool-call-border/70 bg-black overflow-hidden shadow-sm",
+        "relative w-full max-w-sm aspect-[16/9] rounded-2xl border overflow-hidden shadow-sm transition-colors duration-300",
+        isLight ? "bg-slate-50 border-slate-200" : "bg-black border-tool-call-border/70",
         className,
       )}
     >
@@ -235,37 +215,40 @@ export function LaundryVisual({ className, taken = 3, free = 3 }: LaundryVisualP
             }}
           >
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 transition-opacity duration-300"
               style={{
-                backgroundImage: `
-                  linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px)
-                `,
+                backgroundImage: isLight 
+                  ? `linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px)`
+                  : `linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px)`,
                 backgroundSize: "40px 40px",
               }}
             />
           </div>
 
           {machines.map((m) => (
-            <Washer3D key={m.id} x={m.x} y={m.y} rotationZ={m.rotationZ} isOn={m.isOn} />
+            <Washer3D key={m.id} x={m.x} y={m.y} rotationZ={m.rotationZ} isOn={m.isOn} isLight={isLight} />
           ))}
-
-          <Basket3D x={-50} y={0} rotationZ={20} />
-          <Basket3D x={40} y={-5} rotationZ={-15} />
 
         </div>
       </div>
 
       {/* Screen Effects / Hologram Overlays */}
       <div
-        className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-20"
+        className="absolute inset-0 pointer-events-none z-20 mix-blend-screen opacity-20 transition-opacity duration-300"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(0, 255, 136, 0.5) 1px, transparent 1px)",
+          backgroundImage: isLight
+            ? "linear-gradient(rgba(0, 0, 0, 0.2) 1px, transparent 1px)"
+            : "linear-gradient(rgba(0, 255, 136, 0.5) 1px, transparent 1px)",
           backgroundSize: "100% 4px",
+          mixBlendMode: isLight ? "normal" : "screen",
         }}
       />
-      <div className="absolute inset-0 pointer-events-none z-30 shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]" />
+      <div 
+        className={cn(
+          "absolute inset-0 pointer-events-none z-30 transition-shadow duration-300",
+          isLight ? "shadow-[inset_0_0_60px_rgba(255,255,255,0.8)]" : "shadow-[inset_0_0_60px_rgba(0,0,0,0.9)]"
+        )} 
+      />
     </div>
   )
 }
