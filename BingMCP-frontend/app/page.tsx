@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScenarioCard, type Scenario } from "@/components/ui/scenario-card"
 import { MarkdownMessage } from "@/components/ui/markdown-message"
-import { ToolCallCard } from "@/components/ui/tool-call-card"
+import { ToolCallCard } from "@/features/chat/tool-calls"
 import { TestMode } from "@/components/visuals/TestMode"
 
 const SCENARIOS: Scenario[] = [
@@ -60,7 +60,15 @@ function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    let active = true
+    Promise.resolve().then(() => {
+      if (active) setMounted(true)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
   if (!mounted) return <div className="h-9 w-9" />
 
   return (
@@ -223,15 +231,38 @@ export default function ChatWindow() {
                             </div>
                           )
                         }
-                        if (part.type.startsWith("tool-")) {
-                          const tp = part as { type: string; toolCallId: string; toolName: string; state: string; input?: Record<string, unknown>; output?: unknown }
+                        if (part.type.startsWith("tool-") || part.type === "tool-invocation" || part.type === "dynamic-tool") {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const p = part as any
+                          const ti = p.toolInvocation || {}
+                          // Fallback across different AI SDK versions
+                          const toolCallId = p.toolCallId || ti.toolCallId || `tc-${pi}`
+                          const toolName = p.toolName || ti.toolName || p.name || "unknown-tool"
+                          const stateRaw = p.state || ti.state || (p.type === "tool-result" ? "result" : "call")
+
+                          let result = p.output || p.result || ti.result
+
+                          // Handle Vercel AI SDK wrapping MCP tool responses in { content: [{ type: "text", text: "..." }] }
+                          if (result && typeof result === "object" && Array.isArray(result.content) && result.content.length > 0) {
+                            const text = result.content[0].text
+                            if (typeof text === "string") {
+                              try {
+                                result = JSON.parse(text)
+                              } catch {
+                                result = { text }
+                              }
+                            }
+                          }
+
+                          // If output-available, it's a finished result (Vercel AI SDK dynamic-tool pattern)
+                          const actualState = (stateRaw === "result" || stateRaw === "output-available" || result !== undefined) ? "result" : "call"
+
                           return (
                             <ToolCallCard
-                              key={tp.toolCallId}
-                              toolName={tp.toolName}
-                              state={tp.state === "result" ? "result" : "call"}
-                              args={(tp.input as Record<string, unknown>) ?? {}}
-                              result={tp.output}
+                              key={toolCallId}
+                              toolName={toolName}
+                              state={actualState}
+                              result={result}
                             />
                           )
                         }
