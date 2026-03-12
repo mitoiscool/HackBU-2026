@@ -72,13 +72,16 @@ export function useChromeSpeechInput({
 }: UseChromeSpeechInputOptions): UseChromeSpeechInputResult {
   const [state, setState] = useState<VoiceInputState>("idle")
   const [error, setError] = useState<string | null>(null)
+  const [isSupported, setIsSupported] = useState(false)
 
   const onChangeRef = useRef(onChange)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const hasErrorRef = useRef(false)
   const baseTextRef = useRef("")
 
-  const isSupported = useMemo(() => getSpeechRecognitionConstructor() !== null, [])
+  useEffect(() => {
+    setIsSupported(getSpeechRecognitionConstructor() !== null)
+  }, [])
 
   useEffect(() => {
     onChangeRef.current = onChange
